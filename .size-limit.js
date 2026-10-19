@@ -245,7 +245,17 @@ module.exports = [
     // follow-up candidate rather than done here.
     //
     // Measured 44.36 kB. 44.5 kB leaves ~140 B, matching the sdk entry's headroom.
-    limit: '44.5 kB',
+    //
+    // Raised again from 44.5 kB when @partylayer/adapter-loop moved to
+    // @fivenorth/loop-sdk ^0.15.1, the version that knows Loop's new wallet
+    // domain (wallet.*.looptech.io) and opens signing on the domain the user
+    // connected through. Under ^0.13.0 a devnet transfer failed in the wallet
+    // with "Prepared transaction not found". The cost is the vendor's: 0.15.1
+    // replaces the connect overlay with a modal rendered in a shadow root and a
+    // QR built as SVG through DOM APIs (fivenorth-io/loop-sdk#91). The Loop SDK
+    // is not lazy-loaded (LAZY_WALLET_SDKS names Cantor8 only), so it is in this
+    // bundle. Measured 47.22 kB; 47.75 kB leaves about 0.5 kB of headroom.
+    limit: '47.75 kB',
   },
   {
     name: 'react-native: ui (ConnectButton)',
@@ -446,6 +456,16 @@ module.exports = [
     // direction: a cost measured on one bundle and reported as the whole cost.
     //
     // Measured 44.13 kB. 44.25 kB leaves ~120 B.
-    limit: '44.25 kB',
+    //
+    // Raised again from 44.25 kB when @partylayer/adapter-loop moved to
+    // @fivenorth/loop-sdk ^0.15.1, the version that knows Loop's new wallet
+    // domain (wallet.*.looptech.io) and opens signing on the domain the user
+    // connected through. Under ^0.13.0 a devnet transfer failed in the wallet
+    // with "Prepared transaction not found". The cost is the vendor's: 0.15.1
+    // replaces the connect overlay with a modal rendered in a shadow root and a
+    // QR built as SVG through DOM APIs (fivenorth-io/loop-sdk#91). The Loop SDK
+    // is not lazy-loaded (LAZY_WALLET_SDKS names Cantor8 only), so it is in this
+    // bundle. Measured 47.00 kB; 47.5 kB leaves about 0.5 kB of headroom.
+    limit: '47.5 kB',
   },
 ];
