@@ -2,9 +2,9 @@
   "metadata": {
     "registryVersion": "1.0.0",
     "schemaVersion": "1.0.0",
-    "publishedAt": "2026-06-10T00:00:00Z",
+    "publishedAt": "2026-10-22T00:00:00Z",
     "channel": "beta",
-    "sequence": 13,
+    "sequence": 14,
     "publisher": "PartyLayer"
   },
   "wallets": [
@@ -315,6 +315,38 @@
         "native": false,
         "evidence": "https://www.npmjs.com/package/@canton-network/dapp-sdk",
         "since": "2026-06-18"
+      }
+    },
+    {
+      "id": "vala",
+      "name": "Vala Wallet",
+      "description": "Vala is a non-custodial web wallet that serves as your primary gateway to Canton apps.",
+      "homepage": "https://dev.vala-wallet.cc",
+      "icon": "https://registry.partylayer.xyz/wallets/vala-logo.png",
+      "supportedNetworks": ["devnet"],
+      "capabilities": {
+        "signMessage": true,
+        "signTransaction": false,
+        "submitTransaction": true,
+        "transactionStatus": true,
+        "switchNetwork": false,
+        "multiParty": false,
+        "remoteSigner": true,
+        "events": true
+      },
+      "adapter": {
+        "type": "@vala-wallet/dapp-sdk",
+        "transport": "discovery-adapter",
+        "config": { "providerId": "vala" },
+        "networkHosts": {
+          "devnet": "https://dev.vala-wallet.cc"
+        }
+      },
+      "sdkVersion": ">=0.1.0",
+      "cip0103": {
+        "native": true,
+        "evidence": "https://www.npmjs.com/package/@vala-wallet/dapp-sdk",
+        "since": "2026-10-22"
       }
     }
   ]
