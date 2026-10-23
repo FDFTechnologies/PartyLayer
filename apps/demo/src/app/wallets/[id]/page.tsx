@@ -161,9 +161,15 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
         / {w.name}
       </p>
 
+      {w.icon && <img src={w.icon} alt={`${w.name} logo`} width={64} height={64} style={{ borderRadius: 12, marginBottom: 16 }} />}
       <h1 style={{ fontSize: 34, lineHeight: 1.15, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
         {note ? `${baseName(w.name)} wallet integration` : `${w.name} registry entry`}
       </h1>
+      {w.beta && (
+        <p style={{ fontSize: 15, color: t.slate600, margin: '0 0 16px' }}>
+          Beta integration · {w.networks.join(', ')}
+        </p>
+      )}
 
       {note ? (
         <p style={{ fontSize: 18, color: t.slate600, maxWidth: '62ch', margin: '0 0 28px' }}>
@@ -206,6 +212,7 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
           <tbody>
             {[
               ['Transport', w.transportLabel],
+              ['Release channel', w.channel],
               ['Adapter package', w.adapterPackage],
               ['SDK version', w.sdkVersion || 'not declared'],
               ['Networks', w.networks.join(', ')],
@@ -274,7 +281,7 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
 
 export default function App() {
   return (
-    <PartyLayerKit network="devnet" adapters={[${w.id}]}>
+    <PartyLayerKit network="devnet" appName="My dApp"${w.channel === 'beta' ? ' channel="beta"' : ''} adapters={[${w.id}]}>
       <ConnectButton />
     </PartyLayerKit>
   );

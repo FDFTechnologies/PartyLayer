@@ -8,6 +8,8 @@ import { PartyLayerKit, WalletModal, useClientSession, ConnectButton, truncatePa
 import { DEFAULT_RETRY_POLICY, type SessionStoreOptions } from '@partylayer/session';
 import { buildDemoAdapters } from '../lib/canton-demo-adapter';
 import { sortByCanonicalOrder, CANONICAL_WALLET_ORDER } from '../lib/wallet-order';
+import { DEMO_WALLET_ICONS } from '../lib/demo-registry';
+import { registryIconUrl } from '../lib/registry-icon';
 import { useBreakpoint, responsive } from './hooks/useBreakpoint';
 
 /*
@@ -85,6 +87,8 @@ type RegWallet = {
   name: string;
   description?: string;
   icon?: string;
+  beta?: boolean;
+  supportedNetworks?: string[];
   adapter?: { transport?: string };
   installation?: { windowProperty?: string; deeplink?: string; oauth?: boolean; scriptTag?: string };
 };
@@ -138,7 +142,7 @@ function SupportedWalletsStrip() {
     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
       {registryWallets.map(w => (
         <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={w.icon} alt={w.name} width={24} height={24} style={{ borderRadius: 6 }} />
+          <img src={registryIconUrl(w.icon ?? '')} alt={w.name} width={24} height={24} style={{ borderRadius: 6 }} />
           <span style={{ fontSize: 13, fontWeight: 500, color: t.fg }}>{w.name}</span>
         </div>
       ))}
@@ -662,7 +666,7 @@ function Hero({ onConnect }: { onConnect: () => void }) {
   // hero logo map. Empty until the (local, fast) registry loads, so a row renders
   // its name immediately and the mark fills in a tick later.
   const registryWallets = useRegistryWallets();
-  const iconById = new Map(registryWallets.map((w) => [w.id, w.icon]));
+  const iconById = new Map(registryWallets.map((w) => [w.id, registryIconUrl(w.icon ?? '')]));
   return (
     <section style={{ position: 'relative', padding: responsive(bp, '48px 0 56px', '64px 0 72px', '80px 0 96px'), fontFamily: t.font }}>
       <div style={{ maxWidth: 1152, margin: '0 auto', padding: '0 24px' }}>
@@ -1315,7 +1319,7 @@ function WalletGrid() {
             Supported wallets
           </h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: t.slate500, maxWidth: 520, margin: '0 auto' }}>
-            All verified wallets in the Canton ecosystem, unified behind a single interface.
+            Canton wallets in the PartyLayer registry, with beta integrations marked below.
           </p>
         </div>
 
@@ -1325,7 +1329,7 @@ function WalletGrid() {
             <CardHover key={wallet.id} style={{ padding: 20, cursor: 'pointer', height: '100%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               {/* Logo */}
               <div style={{ width: 56, height: 56, borderRadius: t.radius.lg, marginBottom: 16, overflow: 'hidden' }}>
-                <img src={wallet.icon} alt={`${wallet.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={registryIconUrl(wallet.icon ?? '')} alt={`${wallet.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
 
               {/* Name & Badge: flexWrap so a long single-word name (e.g.
@@ -1334,9 +1338,9 @@ function WalletGrid() {
                   registry name length. */}
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                 <h3 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.4, color: t.fg, margin: 0, minWidth: 0 }}>{wallet.name}</h3>
-                <span style={{ ...badge.base, ...badge.verified, flexShrink: 0 }}>
-                  <VerifiedBadge /> Verified
-                </span>
+                {wallet.beta && (
+                  <span style={{ ...badge.base, ...badge.verified, flexShrink: 0 }}>Beta</span>
+                )}
               </div>
 
               {/* Description: flex:1 so the transport row pins to the bottom and
@@ -1349,6 +1353,10 @@ function WalletGrid() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, color: t.slate400 }}>{transportLabel(wallet)}</span>
               </div>
+              <div style={{ fontSize: 12, color: t.slate500, marginTop: 8 }}>
+                {wallet.supportedNetworks?.join(', ')}
+              </div>
+              <Link href={`/wallets/${wallet.id}`} style={{ color: t.fg, fontSize: 13, marginTop: 12 }}>Integration details →</Link>
             </CardHover>
           ))}
         </div>
@@ -1891,6 +1899,8 @@ export default function Home() {
   return (
     <PartyLayerKit
       network="devnet"
+      channel="beta"
+      walletIcons={DEMO_WALLET_ICONS}
       appName="PartyLayer"
       walletOrder={CANONICAL_WALLET_ORDER}
       adapters={buildDemoAdapters()}

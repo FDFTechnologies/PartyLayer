@@ -20,5 +20,6 @@ obtain your own permission from each mark's owner before redistributing these fi
 | nightly.png | Nightly |
 | oneswap.svg | OneSwap V2 Wallet. Used with the vendor's permission. |
 | send-logo.jpg | Send |
+| vala-logo.png | Vala Wallet |
 | walletconnect.svg | WalletConnect |
 | walley-logo.png | Walley |

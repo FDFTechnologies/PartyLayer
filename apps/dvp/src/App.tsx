@@ -119,7 +119,7 @@ export default function App() {
   const theme = mode === 'dark' ? themes.gold.dark : themes.gold.light;
 
   return (
-    <PartyLayerKit network="devnet" appName="PartyLayer DvP" theme={theme} adapters={ADAPTERS}>
+    <PartyLayerKit network="devnet" channel="beta" appName="PartyLayer DvP" theme={theme} adapters={ADAPTERS}>
       <DemoProvider value={{ party, setParty, backend, mode }}>
         <div className={'app app-' + mode}>
           <a className="skip-link" href="#main">

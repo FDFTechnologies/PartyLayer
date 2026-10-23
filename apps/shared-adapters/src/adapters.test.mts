@@ -114,7 +114,7 @@ test('no wallet host is hardcoded: the discovery wallets are registered as facto
   // Walley and Cauri carry networkHosts in their registry entries. Registering
   // them in factory form is what lets the SDK resolve the host per network, and
   // is why no wallet URL appears in the shared module or in any app.
-  for (const id of ['walley', 'cauri', 'oneswap']) {
+  for (const id of ['walley', 'cauri', 'oneswap', 'vala']) {
     const entry = buildWalletAdapters(BASE).find((e) => idOf(e) === id);
     assert.ok(entry, `${id} should be registered`);
     assert.equal(
@@ -123,4 +123,10 @@ test('no wallet host is hardcoded: the discovery wallets are registered as facto
       `${id} must be a factory so its host comes from the registry, not app code`,
     );
   }
+});
+
+test('the Devnet-only Vala beta is omitted on testnet and mainnet', () => {
+  assert.ok(idsFor({ network: 'devnet' }).includes('vala'));
+  assert.ok(!idsFor({ network: 'testnet' }).includes('vala'));
+  assert.ok(!idsFor({ network: 'mainnet' }).includes('vala'));
 });

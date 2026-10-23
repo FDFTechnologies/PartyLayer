@@ -13,7 +13,24 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { connectToMockWallet, disconnectWallet } from './helpers';
+
+// The showcases now use beta. The SDK's registry-less adapter fallback belongs
+// to stable, so explicitly include this test-only wallet in the test response.
+// No fixture entry is ever written to or shipped in the real registry.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/v1/beta/registry.json', async (route) => {
+    const registry = JSON.parse(readFileSync(join(process.cwd(), '../../registry/v1/beta/registry.json'), 'utf8'));
+    registry.wallets.push({
+      id: 'canton-demo', name: 'Canton Demo Wallet', supportedNetworks: ['devnet'],
+      capabilities: { signMessage: true, signTransaction: false, submitTransaction: false, transactionStatus: false, switchNetwork: false, multiParty: false },
+      adapter: { type: 'test-fixture' }, cip0103: { native: true },
+    });
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'cache-control': 'no-store' }, json: registry });
+  });
+});
 
 test.describe('Full Connect Flow — Kit Demo', () => {
   test.beforeEach(async ({ page }) => {

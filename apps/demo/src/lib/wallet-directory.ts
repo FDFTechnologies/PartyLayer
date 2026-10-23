@@ -6,11 +6,12 @@
  * so the read happens once at build time and no filesystem access survives into
  * the deployed runtime.
  *
- * The source is `apps/demo/public/registry/v1/stable/registry.json`, which
+ * The sources are the stable and beta files under `public/registry/v1/`, which
  * `scripts/copy-registry.mjs` writes from the repository's own `registry/`
  * directory on `prebuild` and `predev`. Reading the copy rather than the root
- * means the pages render the same bytes the demo serves to the SDK, with icon
- * URLs already rewritten to local paths.
+ * means the pages describe the same manifests the demo serves to the SDK.
+ * Beta is a superset of stable (enforced by gate:registry); stable membership
+ * determines each wallet's release channel without promoting beta entries.
  *
  * Consequence, and the point of doing it this way: a new wallet in the registry
  * produces its directory row and its own page on the next build with no page
@@ -22,6 +23,7 @@ import { join } from 'node:path';
 import { registryEntryToWalletInfo } from '@partylayer/registry-client';
 import type { RegistryWalletEntry } from '@partylayer/registry-client';
 import { WALLET_NOTES, type WalletNote } from './wallet-notes';
+import { registryIconUrl } from './registry-icon';
 
 /**
  * Wallets whose integration is already documented elsewhere on this site. Their
@@ -32,13 +34,11 @@ const DOCUMENTED_ELSEWHERE: Record<string, string> = {
   send: '/docs/wallets/send',
 };
 
-const REGISTRY_PATH = join(
+const REGISTRY_ROOT = join(
   process.cwd(),
   'public',
   'registry',
   'v1',
-  'stable',
-  'registry.json',
 );
 
 interface RegistryFile {
@@ -96,6 +96,8 @@ export interface DirectoryWallet {
   capabilities: Record<string, boolean>;
   adapterPackage: string;
   sdkVersion: string;
+  channel: 'stable' | 'beta';
+  beta: boolean;
   /** `true`, `false` or undefined when the entry declares nothing. */
   cip0103Native: boolean | undefined;
   cip0103Evidence: string | undefined;
@@ -113,15 +115,19 @@ export interface RegistrySnapshot {
   channel: string;
   publisher: string;
   schemaVersion: string;
+  stableCount: number;
+  betaCount: number;
+  channels: RegistryFile['metadata'][];
   wallets: DirectoryWallet[];
 }
 
-function readRegistry(): RegistryFile {
+function readRegistry(channel: 'stable' | 'beta'): RegistryFile {
+  const registryPath = join(REGISTRY_ROOT, channel, 'registry.json');
   try {
-    return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as RegistryFile;
+    return JSON.parse(readFileSync(registryPath, 'utf8')) as RegistryFile;
   } catch (cause) {
     throw new Error(
-      `Could not read the wallet registry at ${REGISTRY_PATH}. It is written by ` +
+      `Could not read the wallet registry at ${registryPath}. It is written by ` +
         `scripts/copy-registry.mjs, which runs on the demo's prebuild and predev ` +
         `hooks. Run \`pnpm --filter demo build\` (or \`dev\`) rather than invoking ` +
         `\`next build\` directly.`,
@@ -149,12 +155,15 @@ function isIndexable(entry: RegistryWalletEntry): boolean {
 }
 
 export function getRegistrySnapshot(): RegistrySnapshot {
-  const file = readRegistry();
+  const stable = readRegistry('stable');
+  const file = readRegistry('beta');
+  const stableIds = new Set(stable.wallets.map((entry) => entry.id));
 
   const wallets: DirectoryWallet[] = file.wallets.map((entry) => {
     // Reuse the shipped derivation rather than re-implementing it here, so the
     // transport shown on the page is the one the wallet picker actually uses.
-    const info = registryEntryToWalletInfo(entry, 'stable');
+    const channel = stableIds.has(entry.id) ? 'stable' : 'beta';
+    const info = registryEntryToWalletInfo(entry, channel);
     const transport = info.metadata?.transport;
 
     return {
@@ -162,7 +171,7 @@ export function getRegistrySnapshot(): RegistrySnapshot {
       name: entry.name,
       description: entry.description ?? '',
       homepage: entry.homepage ?? '',
-      icon: entry.icon ?? '',
+      icon: registryIconUrl(entry.icon ?? ''),
       transport,
       transportLabel: transport
         ? (TRANSPORT_LABELS[transport] ?? transport)
@@ -171,12 +180,14 @@ export function getRegistrySnapshot(): RegistrySnapshot {
       capabilities: entry.capabilities as unknown as Record<string, boolean>,
       adapterPackage: entry.adapter.type,
       sdkVersion: entry.sdkVersion ?? '',
+      channel,
+      beta: channel === 'beta' || entry.beta === true,
       cip0103Native: entry.cip0103?.native,
       cip0103Evidence: entry.cip0103?.evidence,
       cip0103Since: entry.cip0103?.since,
       note: WALLET_NOTES[entry.id],
       documentedAt: DOCUMENTED_ELSEWHERE[entry.id],
-      indexable: isIndexable(entry),
+      indexable: channel === 'stable' && isIndexable(entry),
     };
   });
 
@@ -186,6 +197,9 @@ export function getRegistrySnapshot(): RegistrySnapshot {
     channel: file.metadata.channel,
     publisher: file.metadata.publisher,
     schemaVersion: file.metadata.schemaVersion,
+    stableCount: stableIds.size,
+    betaCount: wallets.filter((wallet) => wallet.channel === 'beta').length,
+    channels: [stable.metadata, file.metadata],
     wallets,
   };
 }

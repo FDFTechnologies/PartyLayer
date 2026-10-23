@@ -42,8 +42,9 @@ const EXCEPTIONS = {
 };
 
 /** Discovery-adapter wallets in the stable registry: { id, package }. */
-function stableDiscoveryWallets() {
-  const reg = JSON.parse(readFileSync(join(ROOT, 'registry/v1/stable/registry.json'), 'utf8'));
+function discoveryWallets() {
+  // The public Devnet showcases opt into beta; beta includes every stable wallet.
+  const reg = JSON.parse(readFileSync(join(ROOT, 'registry/v1/beta/registry.json'), 'utf8'));
   const wallets = reg.wallets ?? reg.data?.wallets ?? [];
   return wallets
     .filter((w) => w.adapter?.transport === 'discovery-adapter')
@@ -140,9 +141,9 @@ function appExcludedKeys(appDir) {
   return excluded;
 }
 
-const DISCOVERY_WALLETS = stableDiscoveryWallets();
+const DISCOVERY_WALLETS = discoveryWallets();
 
-test('the stable registry has at least one discovery-adapter wallet to prove the path', () => {
+test('the demo registry has at least one discovery-adapter wallet to prove the path', () => {
   assert.ok(
     DISCOVERY_WALLETS.length > 0,
     'No discovery-adapter wallet in the stable registry. If this is intentional the guard is moot; ' +
@@ -174,7 +175,7 @@ for (const app of SHOWCASE_APPS) {
 
       assert.ok(
         declared && referenced && !optedOut,
-        `The stable registry lists discovery-adapter wallet "${wallet.id}" (package ${wallet.pkg}), ` +
+        `The beta registry lists discovery-adapter wallet "${wallet.id}" (package ${wallet.pkg}), ` +
           `but ${problems.join(' and ')}. The SDK hides a discovery-adapter entry whose adapter is not ` +
           `supplied, so this wallet is invisible in ${app}.\n` +
           `  Fix: add ${wallet.pkg} (pinned exactly) to ${SHARED_ADAPTERS_DIR}/package.json and register ` +

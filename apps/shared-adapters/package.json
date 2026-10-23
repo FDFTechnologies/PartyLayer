@@ -34,7 +34,8 @@
     "@partylayer/adapter-send": "workspace:^",
     "@partylayer/adapter-walletconnect": "workspace:^",
     "@partylayer/core": "workspace:^",
-    "@partylayer/sdk": "workspace:^"
+    "@partylayer/sdk": "workspace:^",
+    "@vala-wallet/dapp-sdk": "0.1.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
