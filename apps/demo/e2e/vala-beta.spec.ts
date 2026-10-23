@@ -11,7 +11,7 @@ test('Vala appears in the generated directory and its Devnet beta integration pa
   await expect(page.getByText('Beta integration · devnet', { exact: true })).toBeVisible();
   const logo = page.getByRole('img', { name: 'Vala Wallet logo' });
   await expect(logo).toBeVisible();
-  expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
   await expect(page.locator('main')).toContainText('channel="beta"');
 });
 
@@ -23,7 +23,7 @@ test('the landing page adds Vala and its logo from the branch registry', async (
   await expect(card).toContainText('Beta');
   await expect(card).toContainText('devnet');
   await expect(card.getByRole('link', { name: /Integration details/ })).toHaveAttribute('href', '/wallets/vala');
-  expect(await card.getByRole('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => card.getByRole('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 });
 
 test('the real Vala factory opens the registry Devnet login from the picker', async ({ page, context }) => {
