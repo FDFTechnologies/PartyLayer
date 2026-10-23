@@ -87,7 +87,6 @@ const vala = valaAdapterFactory;
       { title: 'Reload uses the saved wallet session', body: 'Vala supplies restore(), which the generic bridge calls when reviving a persisted PartyLayer session. If the wallet session is no longer valid, reconnect.' },
     ],
     troubleshooting: [
-      { symptom: 'Vala is missing from the picker', cause: 'The app is using the stable channel or has not registered valaAdapterFactory.', fix: 'Select channel="beta" and pass valaAdapterFactory in adapters.' },
       { symptom: 'The browser blocked the Vala popup', cause: 'The browser did not allow the wallet approval window to open.', fix: 'Retry from a user click and allow popups for your dApp.' },
     ],
   },

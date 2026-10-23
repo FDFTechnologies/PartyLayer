@@ -281,7 +281,7 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
 
 export default function App() {
   return (
-    <PartyLayerKit network="devnet"${w.channel === 'beta' ? ' channel="beta"' : ''} adapters={[${w.id}]}>
+    <PartyLayerKit network="devnet" appName="My dApp"${w.channel === 'beta' ? ' channel="beta"' : ''} adapters={[${w.id}]}>
       <ConnectButton />
     </PartyLayerKit>
   );
