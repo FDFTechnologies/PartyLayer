@@ -9,9 +9,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test --test-force-exit src/lib/cauri-kit-demo.test.ts",
+    "pretest": "node scripts/copy-registry.mjs",
+    "test": "tsx --test --test-force-exit src/lib/*.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:pr": "playwright test smoke.spec.ts full-connect-flow.spec.ts",
+    "test:e2e:pr": "playwright test smoke.spec.ts full-connect-flow.spec.ts vala-beta.spec.ts",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {

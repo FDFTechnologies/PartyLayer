@@ -14,12 +14,12 @@ import {
 } from '@partylayer/react';
 import { isCip0103Native } from '@partylayer/sdk';
 import { useBreakpoint, responsive } from '../hooks/useBreakpoint';
-// Cauri now ships in the stable registry and is registered inside
-// buildDemoAdapters() alongside Walley, so this surface no longer needs its own
-// factory import or a beta channel override: it reads the default stable channel
-// like every other surface.
+// Devnet showcases opt into beta so newly integrated wallets are usable before
+// stable promotion. The shared adapter set supplies their official factories.
 import { buildDemoAdapters } from '../../lib/canton-demo-adapter';
 import { sortByCanonicalOrder, CANONICAL_WALLET_ORDER } from '../../lib/wallet-order';
+import { DEMO_WALLET_ICONS } from '../../lib/demo-registry';
+import { registryIconUrl } from '../../lib/registry-icon';
 
 // ─── Design Tokens (light + dark, matching marketing/landing page) ──────────
 
@@ -492,7 +492,7 @@ function WalletCard({
   const c = useTokens();
   const shadow = c.shadow;
   // The registry icon (served locally) is the single source for the mark.
-  const logo = iconUrl ?? null;
+  const logo = iconUrl ? registryIconUrl(iconUrl) : null;
 
   return (
     <div style={{
@@ -805,7 +805,7 @@ export default function KitDemoPage() {
         fontFamily: font,
         transition: 'background-color 200ms, color 200ms',
       }}>
-        <PartyLayerKit network="devnet" appName="PartyLayer Kit Demo" theme={kitTheme} showAttribution={showAttr} walletOrder={CANONICAL_WALLET_ORDER} adapters={buildDemoAdapters()} registryUrl="/registry">
+        <PartyLayerKit network="devnet" channel="beta" appName="PartyLayer Kit Demo" theme={kitTheme} showAttribution={showAttr} walletOrder={CANONICAL_WALLET_ORDER} walletIcons={DEMO_WALLET_ICONS} adapters={buildDemoAdapters()} registryUrl="/registry">
           <div style={{ maxWidth: '880px', margin: '0 auto', padding: '0 24px' }}>
 
             {/* Navbar */}

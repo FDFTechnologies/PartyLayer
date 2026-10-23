@@ -63,6 +63,34 @@ export interface WalletNote {
 
 
 export const WALLET_NOTES: Record<string, WalletNote> = {
+  vala: {
+    summary:
+      'Vala is available as a Devnet beta through its published ProviderAdapter. PartyLayer wraps the official factory through the generic discovery bridge; the registry supplies the wallet host. Select the beta channel to use this integration.',
+    installPackage: '@vala-wallet/dapp-sdk@0.1.0',
+    construct: `import { valaAdapterFactory } from '@vala-wallet/dapp-sdk';
+
+const vala = valaAdapterFactory;
+// Pass vala to PartyLayerKit with network="devnet" and channel="beta".
+// PartyLayer resolves the host from the registry.`,
+    requiresConfig: false,
+    connectionFlow:
+      'The factory constructs Vala with the Devnet host from the registry. Connect opens the Vala login popup when there is no saved session. After login, the bridge reads the primary account and network. Message signing and transaction submission open an approval popup; the published Vala SDK polls for the result and returns it to the caller.',
+    transportImplication:
+      'This is a hosted popup integration. Start connect, sign and submit from a user action so the browser can open the approval window. A Vala account is required; follow the wallet homepage for access.',
+    notAvailable: [
+      { what: 'testnet and mainnet', why: 'The beta registry entry currently declares Devnet only.' },
+      { what: 'provider event subscriptions', why: 'The discovery bridge exposes request results without declaring the events capability.' },
+      { what: 'detached transaction signing', why: 'This integration declares submitTransaction, with signTransaction: false.' },
+    ],
+    gotchas: [
+      { title: 'Use the beta channel', body: 'Vala is not in the stable registry. Set channel="beta" alongside network="devnet"; the default channel is stable.' },
+      { title: 'Reload uses the saved wallet session', body: 'Vala supplies restore(), which the generic bridge calls when reviving a persisted PartyLayer session. If the wallet session is no longer valid, reconnect.' },
+    ],
+    troubleshooting: [
+      { symptom: 'Vala is missing from the picker', cause: 'The app is using the stable channel or has not registered valaAdapterFactory.', fix: 'Select channel="beta" and pass valaAdapterFactory in adapters.' },
+      { symptom: 'The browser blocked the Vala popup', cause: 'The browser did not allow the wallet approval window to open.', fix: 'Retry from a user click and allow popups for your dApp.' },
+    ],
+  },
   console: {
     summary:
       'ConsoleAdapter is the reference integration in this repository and the one with the widest surface. It is the only adapter here whose registry entry declares an announce transport, so an installed wallet is discovered through the CIP-0103 announcement rather than by probing a window property. It reaches all three networks, and it is the only one in this set that serves desktop and mobile from a single entry.',

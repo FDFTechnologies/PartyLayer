@@ -81,7 +81,7 @@ export default function WalletsDirectoryPage() {
         name: 'How many wallets support Canton through PartyLayer?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: `The stable registry lists ${wallets.length} wallets. ${nativeCount} declare CIP-0103 native support with an evidence link, one declares it is not native, and ${undeclaredCount} declare nothing either way.`,
+          text: `The directory lists ${snapshot.stableCount} stable wallets and ${snapshot.betaCount} additional beta wallets. ${nativeCount} declare CIP-0103 native support with an evidence link, one declares it is not native, and ${undeclaredCount} declare nothing either way.`,
         },
       },
       {
@@ -122,7 +122,7 @@ export default function WalletsDirectoryPage() {
         drives it, and which capability flags map to which SDK calls.
       </p>
       <p style={{ fontSize: 15, color: t.slate500, maxWidth: '62ch', margin: '0 0 28px' }}>
-        {wallets.length} wallets. {nativeCount} declare CIP-0103 native support, one declares it is
+        {snapshot.stableCount} stable wallets and {snapshot.betaCount} additional beta wallets. {nativeCount} declare CIP-0103 native support, one declares it is
         not native, and {undeclaredCount} declare nothing either way.
       </p>
 
@@ -143,17 +143,20 @@ export default function WalletsDirectoryPage() {
         </h2>
         <p style={{ margin: '0 0 8px' }}>
           This page is generated from{' '}
-          <code style={{ fontFamily: t.mono, fontSize: 13 }}>registry/v1/stable/registry.json</code>{' '}
+          <code style={{ fontFamily: t.mono, fontSize: 13 }}>registry/v1/stable/registry.json</code> and{' '}
+          <code style={{ fontFamily: t.mono, fontSize: 13 }}>registry/v1/beta/registry.json</code>{' '}
           in the PartyLayer repository, on every deploy. It is not a hand-maintained list, so it
           cannot fall behind the registry it describes: if a wallet is added, its row and its page
           appear on the next build with nothing written by hand.
         </p>
-        <p style={{ margin: '0 0 8px' }}>
-          Registry sequence <strong>{snapshot.sequence}</strong>, channel{' '}
-          <strong>{snapshot.channel}</strong>, published{' '}
-          <strong>{formatDate(snapshot.publishedAt)}</strong> by {snapshot.publisher}. Schema version{' '}
-          {snapshot.schemaVersion}.
-        </p>
+        {snapshot.channels.map((channel) => (
+          <p key={channel.channel} style={{ margin: '0 0 8px' }}>
+            Registry sequence <strong>{channel.sequence}</strong>, channel{' '}
+            <strong>{channel.channel}</strong>, published{' '}
+            <strong>{formatDate(channel.publishedAt)}</strong> by {channel.publisher}. Schema version{' '}
+            {channel.schemaVersion}.
+          </p>
+        ))}
         <p style={{ margin: 0 }}>
           <strong>What checking means here, and what it does not.</strong> Every entry is validated
           against a JSON Schema on each build, and a gate asserts that wallets already recorded as
@@ -194,7 +197,7 @@ export default function WalletsDirectoryPage() {
             {wallets.map((w) => (
               <tr key={w.id}>
                 <td style={{ padding: '10px 12px', borderBottom: `1px solid ${t.border}`, verticalAlign: 'top' }}>
-                  {w.indexable ? (
+                  {w.indexable || w.beta ? (
                     <Link href={`/wallets/${w.id}`} style={{ fontWeight: 600, color: t.fg }}>
                       {w.name}
                     </Link>
@@ -205,6 +208,7 @@ export default function WalletsDirectoryPage() {
                   ) : (
                     <span style={{ fontWeight: 600 }}>{w.name}</span>
                   )}
+                  {w.beta && <span style={{ marginLeft: 8, color: t.slate600, fontSize: 12 }}>Beta</span>}
                   <div style={{ color: t.slate500, fontSize: 13, marginTop: 2 }}>{w.description}</div>
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: `1px solid ${t.border}`, verticalAlign: 'top' }}>

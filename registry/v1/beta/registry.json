@@ -320,6 +320,7 @@
     {
       "id": "vala",
       "name": "Vala Wallet",
+      "beta": true,
       "description": "Vala is a non-custodial web wallet that serves as your primary gateway to Canton apps.",
       "homepage": "https://dev.vala-wallet.cc",
       "icon": "https://registry.partylayer.xyz/wallets/vala-logo.png",
@@ -332,7 +333,7 @@
         "switchNetwork": false,
         "multiParty": false,
         "remoteSigner": true,
-        "events": true
+        "events": false
       },
       "adapter": {
         "type": "@vala-wallet/dapp-sdk",

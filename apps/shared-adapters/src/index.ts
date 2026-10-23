@@ -45,6 +45,7 @@ import { BronAdapter, type BronAdapterConfig } from '@partylayer/adapter-bron';
 // pages, so both are pinned exactly here rather than ranged.
 import { WalleyAdapter } from '@k2flabs/walley-dapp-sdk';
 import { cauriAdapterFactory } from '@lithiumdigital/cauri-dapp-sdk';
+import { valaAdapterFactory } from '@vala-wallet/dapp-sdk';
 // OneSwap ships no ready factory and its constructor needs BOTH a wallet URL and
 // a CAIP-2 networkId, so the factory below is ours. Pinned exactly, same reason.
 import { createOneSwapProviderAdapter } from '@oneswap/wallet-cip0103-adapter';
@@ -61,6 +62,7 @@ export type WalletKey =
   | 'walley'
   | 'cauri'
   | 'oneswap'
+  | 'vala'
   | 'walletconnect'
   | 'bron';
 
@@ -129,6 +131,7 @@ export const SHARED_WALLET_KEYS = [
   'walley',
   'cauri',
   'oneswap',
+  'vala',
   'walletconnect',
   'bron',
 ] as const satisfies readonly WalletKey[];
@@ -156,6 +159,9 @@ const WALLET_BUILDERS: Record<
     create: (host: string) => new WalleyAdapter({ host }),
   }),
   cauri: () => cauriAdapterFactory as AdapterEntry,
+  // Vala is currently a Devnet beta. Do not synthesize a registered wallet on
+  // other networks, where the registry deliberately supplies no host.
+  vala: (opts) => opts.network === 'devnet' ? valaAdapterFactory as AdapterEntry : null,
   // OneSwap is hosted and custodial: it approves and submits inside its own
   // popup origin. FACTORY form like Walley and Cauri, so the SDK resolves the
   // wallet URL from the registry entry's adapter.networkHosts for the active
