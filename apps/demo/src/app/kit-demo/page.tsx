@@ -11,15 +11,22 @@ import {
   themes,
   accentPresets,
   PartyAvatar,
+  LanguageSelector,
+  type PartyLayerLocale,
 } from '@partylayer/react';
 import { isCip0103Native } from '@partylayer/sdk';
 import { useBreakpoint, responsive } from '../hooks/useBreakpoint';
 // Devnet showcases opt into beta so newly integrated wallets are usable before
 // stable promotion. The shared adapter set supplies their official factories.
 import { buildDemoAdapters } from '../../lib/canton-demo-adapter';
+import { WC_METADATA, wcProjectId } from '../../lib/walletconnect-demo';
+
 import { sortByCanonicalOrder, CANONICAL_WALLET_ORDER } from '../../lib/wallet-order';
 import { DEMO_WALLET_ICONS } from '../../lib/demo-registry';
 import { registryIconUrl } from '../../lib/registry-icon';
+const DEMO_ADDITIONAL_ADAPTERS = buildDemoAdapters();
+const DEMO_WALLET_CONNECT = { projectId: wcProjectId(), metadata: WC_METADATA };
+
 
 // ─── Design Tokens (light + dark, matching marketing/landing page) ──────────
 
@@ -213,6 +220,7 @@ function DemoContent() {
                       <WalletCard
                         key={w.walletId}
                         name={w.name}
+                        beta={w.metadata?.beta === 'true'}
                         capabilities={w.capabilities}
                         iconUrl={w.icons?.sm}
                         isNative
@@ -231,6 +239,7 @@ function DemoContent() {
                       <WalletCard
                         key={w.walletId}
                         name={w.name}
+                        beta={w.metadata?.beta === 'true'}
                         capabilities={w.capabilities}
                         iconUrl={w.icons?.sm}
                         website={w.website}
@@ -482,7 +491,9 @@ function WalletCard({
   isNative,
   website,
   iconUrl,
+  beta,
 }: {
+  beta?: boolean;
   name: string;
   capabilities: string[];
   isNative?: boolean;
@@ -549,8 +560,8 @@ function WalletCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: '15px', color: c.fg }}>{name}</span>
 
-            {/* Verified badge (matching marketing badge-verified) */}
-            <span style={{
+            {/* Catalog inclusion is not a claim of live transaction certification. */}
+            <span title="Catalog integration status; not a certification of live send or swap tests." style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '3px',
@@ -561,10 +572,10 @@ function WalletCard({
               borderRadius: '6px',
               fontWeight: 600,
             }}>
-              <svg width="10" height="10" fill={c.brand600} viewBox="0 0 20 20">
+              {!beta && <svg width="10" height="10" fill={c.brand600} viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-              </svg>
-              Verified
+              </svg>}
+              {beta ? 'Beta' : 'Catalog'}
             </span>
 
             {/* CIP-0103 badge for native */}
@@ -723,6 +734,8 @@ export default function KitDemoPage() {
   const [family, setFamily] = useState<'default' | 'midnight' | 'slate' | 'teal' | 'gold' | 'warm'>('default');
   const [accent, setAccent] = useState<'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red'>('default');
   const [showAttr, setShowAttr] = useState(true);
+  const [locale, setLocale] = useState<PartyLayerLocale>('en');
+  const [direction, setDirection] = useState<'ltr' | 'rtl' | undefined>(undefined);
   const [accountStatus, setAccountStatus] = useState<'full' | 'avatar' | 'address'>('full');
   const [systemDark, setSystemDark] = useState(false);
 
@@ -781,19 +794,26 @@ export default function KitDemoPage() {
   ] as const;
 
   if (!mounted) return (
-    <div style={{
+    <main style={{
       minHeight: '100vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 16,
-      background: '#FFFFFF', fontFamily: font,
+      background: '#FFFFFF', color: '#0B0F1A', fontFamily: font,
+      padding: '32px 24px', textAlign: 'center',
     }}>
-      <img src="/favicon-new.svg" alt="" width={48} height={48} style={{ opacity: 0.7 }} />
-      <div style={{
-        width: 32, height: 32, border: '3px solid #EEF0F4',
-        borderTopColor: '#FFCC00', borderRadius: '50%',
-        animation: 'plSpin .7s linear infinite',
-      }} />
-      <style>{`@keyframes plSpin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+      <img src="/favicon-new.svg" alt="" width={48} height={48} />
+      <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', lineHeight: 1.2 }}>
+        Canton wallet connection playground
+      </h1>
+      <p style={{ maxWidth: 560, margin: 0, lineHeight: 1.6, color: '#475569' }}>
+        Explore PartyLayerKit themes, the Connect Wallet button and supported Canton wallet integrations.
+        This demo uses Devnet and includes beta wallets. Real connections require your own wallet account and approval.
+      </p>
+      <nav aria-label="Playground setup guides" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 20 }}>
+        <a href="/docs/quick-start" style={{ color: '#806000' }}>React and Next.js quick start</a>
+        <a href="/wallets" style={{ color: '#806000' }}>Wallet networks and capabilities</a>
+      </nav>
+      <p role="status" style={{ color: '#475569', margin: 0 }}>Loading interactive controls…</p>
+    </main>
   );
 
   return (
@@ -805,7 +825,7 @@ export default function KitDemoPage() {
         fontFamily: font,
         transition: 'background-color 200ms, color 200ms',
       }}>
-        <PartyLayerKit network="devnet" channel="beta" appName="PartyLayer Kit Demo" theme={kitTheme} showAttribution={showAttr} walletOrder={CANONICAL_WALLET_ORDER} walletIcons={DEMO_WALLET_ICONS} adapters={buildDemoAdapters()} registryUrl="/registry">
+        <PartyLayerKit locale={locale} direction={direction} network="devnet" channel="beta" appName="PartyLayer Kit Demo" theme={kitTheme} showAttribution={showAttr} walletOrder={CANONICAL_WALLET_ORDER} walletIcons={DEMO_WALLET_ICONS} additionalAdapters={DEMO_ADDITIONAL_ADAPTERS} walletConnect={DEMO_WALLET_CONNECT} registryUrl="/registry">
           <div style={{ maxWidth: '880px', margin: '0 auto', padding: '0 24px' }}>
 
             {/* Navbar */}
@@ -829,13 +849,14 @@ export default function KitDemoPage() {
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {/* Theme toggle */}
                 <div style={{
                   display: 'flex',
                   borderRadius: '10px',
                   border: `1px solid ${c.border}`,
                   overflow: 'hidden',
+                  flexShrink: 0,
                 }}>
                   {(['light', 'dark', 'auto'] as const).map((t) => (
                     <button
@@ -915,6 +936,10 @@ export default function KitDemoPage() {
                 showAttribution
               </button>
 
+              <LanguageSelector aria-label="Wallet UI language" value={locale} onChange={next => { setLocale(next); setDirection(undefined); }} />
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: c.slate500 }}>
+                <input type="checkbox" checked={(direction ?? (locale === 'ar' ? 'rtl' : 'ltr')) === 'rtl'} onChange={event => setDirection(event.target.checked ? 'rtl' : 'ltr')} /> RTL
+              </label>
               <span style={{ fontSize: '12px', color: c.slate500, marginLeft: 'auto' }}>
                 {accent === 'default'
                   ? `<PartyLayerKit showAttribution={${showAttr}}>`
@@ -1092,14 +1117,14 @@ export default function KitDemoPage() {
                 lineHeight: 1.6,
                 maxWidth: '520px',
               }}>
-                CIP-0103 native wallet discovery with automatic registry fallback.
-                Connect any Canton wallet in 3 lines of code.
+                Discover supported wallets through CIP-0103 and the PartyLayer registry.
+                Reviewed wallet runtimes and a branded connection UI come with the kit.
               </p>
 
               {/* Feature badges */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {[
-                  { label: 'CIP-0103 Compliant', hasIcon: true },
+                  { label: 'CIP-0103 Integration', hasIcon: true },
                   { label: 'Auto-Discovery', hasIcon: false },
                   { label: 'Devnet', hasIcon: false },
                 ].map((badge) => (

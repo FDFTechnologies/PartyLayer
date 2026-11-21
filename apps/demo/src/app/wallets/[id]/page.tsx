@@ -24,8 +24,9 @@ export function generateStaticParams(): { id: string }[] {
   return getAllWalletIds().map((id) => ({ id }));
 }
 
-export function generateMetadata({ params }: { params: { id: string } }): Metadata {
-  const w = getWallet(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const w = getWallet(id);
   if (!w) return {};
 
   const url = `https://partylayer.xyz/wallets/${w.id}`;
@@ -53,7 +54,7 @@ export function generateMetadata({ params }: { params: { id: string } }): Metada
   }
 
   const title = `${baseName(w.name)} wallet integration for Canton dApps`;
-  const description = `Connect ${w.name} in a Canton dApp with PartyLayer: install ${w.adapterPackage}, construct the adapter, and know which calls it supports and which it does not.`;
+  const description = `Connect ${w.name} on Canton with PartyLayer's React kit. Wallet runtimes are included; check supported networks, application setup and capability limits.`;
 
   return {
     title: { absolute: `${title} · PartyLayer` },
@@ -108,8 +109,9 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
-export default function WalletIntegrationPage({ params }: { params: { id: string } }) {
-  const w = getWallet(params.id);
+export default async function WalletIntegrationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const w = getWallet(id);
   if (!w) notFound();
 
   const snapshot = getRegistrySnapshot();
@@ -121,10 +123,9 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
         '@context': 'https://schema.org',
         '@type': 'TechArticle',
         headline: `${baseName(w.name)} wallet integration for Canton dApps`,
-        description: `How to connect ${w.name} in a Canton dApp using PartyLayer's ${w.adapterPackage} adapter.`,
+        description: `Connect ${w.name} with PartyLayer's React wallet kit, included wallet runtimes and explicit network and capability requirements.`,
         url: `https://partylayer.xyz/wallets/${w.id}`,
         proficiencyLevel: 'Beginner',
-        dateModified: snapshot.publishedAt,
         author: { '@type': 'Organization', name: 'PartyLayer', url: 'https://partylayer.xyz/' },
         publisher: { '@type': 'Organization', name: 'PartyLayer', url: 'https://partylayer.xyz/' },
         about: { '@type': 'SoftwareApplication', name: w.name, url: w.homepage || undefined },
@@ -267,25 +268,28 @@ export default function WalletIntegrationPage({ params }: { params: { id: string
       {note ? (
         <>
           <h2 style={{ fontSize: 22, margin: '0 0 12px' }}>Install</h2>
-          <CodeBlock>{`npm install @partylayer/react ${note.installPackage}`}</CodeBlock>
+          <CodeBlock>{`npm install @partylayer/react @tanstack/react-query`}</CodeBlock>
 
-          <h2 style={{ fontSize: 22, margin: '0 0 12px' }}>Construct the adapter</h2>
-          <CodeBlock>{note.construct}</CodeBlock>
-
-          <h2 style={{ fontSize: 22, margin: '0 0 12px' }}>Register it</h2>
+          <h2 style={{ fontSize: 22, margin: '0 0 12px' }}>Connect with the default catalog</h2>
           <p style={{ fontSize: 15, color: t.slate700, maxWidth: '62ch', margin: '0 0 16px' }}>
-            Pass the adapter to <code style={{ fontFamily: t.mono, fontSize: 13 }}>PartyLayerKit</code>.
-            Everything else, the button and the modal, is the same for every wallet.
+            Supported wallet SDKs are included. Choose a supported network and channel;
+            no wallet-specific import or registration is required.
           </p>
           <CodeBlock>{`import { PartyLayerKit, ConnectButton } from '@partylayer/react';
 
 export default function App() {
   return (
-    <PartyLayerKit network="devnet" appName="My dApp"${w.channel === 'beta' ? ' channel="beta"' : ''} adapters={[${w.id}]}>
+    <PartyLayerKit network="devnet" appName="My dApp"${w.channel === 'beta' ? ' channel="beta"' : ''}>
       <ConnectButton />
     </PartyLayerKit>
   );
 }`}</CodeBlock>
+
+          <details style={{ marginBottom: 24 }}>
+            <summary>Advanced: custom provider construction</summary>
+            <p>Only for applications replacing the default catalog.</p>
+            <CodeBlock>{note.construct}</CodeBlock>
+          </details>
 
           <h2 style={{ fontSize: 22, margin: '0 0 12px' }}>Connection flow</h2>
           <p style={{ fontSize: 15, color: t.slate700, maxWidth: '62ch', margin: '0 0 24px', lineHeight: 1.7 }}>

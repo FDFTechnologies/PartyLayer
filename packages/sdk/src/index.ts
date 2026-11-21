@@ -13,6 +13,13 @@
 
 // Public API
 export { createPartyLayer, PartyLayerClient } from './client';
+export { createWalletLedgerReader } from './wallet-ledger-reader';
+export { createApplicationLedgerReader } from './application-ledger-reader';
+export type { ApplicationLedgerReaderOptions } from './application-ledger-reader';
+export type {
+  WalletLedgerClient, WalletLedgerReader, WalletLedgerReaderOptions, WalletHoldingsSnapshot, WalletHoldingsV2Snapshot,
+  WalletTransactionReference, WalletTransactionConfirmation,
+} from './wallet-ledger-reader';
 // A2 — announce discovery: dynamic adapter for announce-only wallets without a
 // first-party adapter (canonical providerId `browser:ext:<id>`, provider.md).
 export {
@@ -25,6 +32,7 @@ export {
 // ProviderAdapter (e.g. Walley) — popup/remote wallets, no wallet-specific package.
 export {
   GenericDiscoveryAdapter,
+  getDiscoveryCapabilities,
   type GenericDiscoveryAdapterArgs,
 } from './discovery-adapter';
 // Backward compatibility aliases
@@ -137,6 +145,7 @@ export {
 } from './builtin-adapters';
 
 // Re-export Bron adapter config types (for advanced usage)
+export { completeBronAuthorization } from './bron-authorization';
 export type {
   BronAdapterConfig,
   BronAuthConfig,
@@ -194,3 +203,5 @@ export type {
   DiscoveredProvider,
   PartyLayerProviderOptions,
 } from '@partylayer/provider';
+
+export type { WalletConnectAdapterConfig } from '@partylayer/adapter-walletconnect';

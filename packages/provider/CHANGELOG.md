@@ -1,5 +1,39 @@
 # @partylayer/provider
 
+## 0.6.2
+
+### Patch Changes
+
+- Reject malformed provider request envelopes and parameter shapes with numeric
+  CIP-0103 errors before calling a wallet or opening an extension channel. Apply
+  the same validation to the native provider and the client compatibility bridge.
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+
+## 0.6.1
+
+- Forward same-window, same-origin, target-scoped wallet notifications through
+  extension channels. Attach listeners lazily, release idle listeners, pool SDK
+  channels per target and support explicit teardown of pending RPCs.
+
+### Patch Changes
+
+- Route combined-only transaction wallets directly to submission. Keep separate
+  signing for wallets that advertise it, bind submission to the same session and
+  reject duplicate pending command ids. Emit signed/executed events only from
+  actual signature metadata and ledger update/offset evidence. Lost submit
+  responses remain unknown; never retry or manufacture failed/completed events.
+  A disconnected bridge no longer invents an active Devnet network.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+
 ## 0.6.0
 
 ### Minor Changes
@@ -23,6 +57,7 @@
   ## Who is affected
 
   The compiler enumerated this, not a grep. Every site that had to change:
+
   - `@partylayer/sdk` — the three `tx:status` emissions in `client.ts` (sign, submit, transfer)
   - `@partylayer/provider` — `BridgeableClient`'s structural type, and the `signed` / `executed` CIP-0103 payloads
   - `@partylayer/react` and `@partylayer/vue` — the `TransactionToast` detail line
@@ -40,6 +75,7 @@
   Two of the nine were found only while making this change — in our Bron adapter, which an earlier survey of this exact problem had missed because they were ternaries rather than `??` chains. That is the argument in miniature: fixing the sites one at a time finds the ones you already know how to look for, and leaving the field required guarantees the next adapter writes a tenth.
 
   ## Also fixed here
+
   - **`BronAdapter`** omits `transactionHash` instead of reporting the word `'pending'` as one (two sites).
   - **`LoopAdapter`** omits it instead of reporting the command id under it. The command id is still reported as `commandId`, which is true of it. A real value under a wrong name is the same error as a fabricated one for anyone reading the field by its name.
 
@@ -119,6 +155,7 @@
   boundary (`LedgerApiParams`) accepts a friendly superset, `requestMethod` in
   either case (plus `PATCH`) and `body` as a JSON string **or** a plain object, and
   each adapter normalizes to what its wallet requires:
+
   - **CIP-0103 `window.canton` RPC wallets**, Send, Console, Nightly,
     WalletConnect, and the SDK announce bridge, get a **lower-case** verb + an
     **object** body, per the canonical CIP-0103 OpenRPC `LedgerApiRequest` schema
@@ -147,6 +184,7 @@
 ### Minor Changes
 
 - a3f2ea4: Fix the announce-discovery race: a wallet that announces (`canton:announceProvider`) **after** the one-shot request window, or on inject before any request, was missed, surfacing as `Wallet "…" did not announce`.
+
   - **@partylayer/provider** (additive): new `subscribeAnnouncedProviders(onProvider, opts)`, a PERSISTENT (EIP-6963-style) announce subscription that captures late and inject-time announces until the returned unsubscribe runs, and `waitForAnnouncedProvider(predicate, { timeoutMs })`, which resolves the moment a matching announce arrives (vs a fixed window). The existing one-shot `discoverAnnouncedProviders` / `discoverProviders` are **unchanged**.
   - **@partylayer/sdk** (patch): the client mounts one persistent accumulator at construction (read by `aggregateAnnouncedWallets`, torn down in `destroy()`), so a late/inject-time announce surfaces in `listWallets()`. No public API change.
   - **@partylayer/adapter-send** (minor): `SendProvider` resolves its channel via resolve-on-arrival (`waitForProvider`), so a late Send announce is no longer missed. Detect and connect now use **split bounds** mirroring the EIP-6963 reactive-readiness model: `detectInstalled`/`isInstalled` waits ~1000ms (best-effort readiness, won't stall the UI when Send is absent; the persistent accumulator self-corrects a later announce), while the deliberate connect/request path waits 3000ms. New `SendProviderOptions.detectTimeoutMs` (default 1000) alongside `announceTimeoutMs` (default 3000). The legacy `SendProviderOptions.discover` hook is **kept (deprecated)**, wrapped for backward compatibility.
@@ -196,6 +234,7 @@
   wallet's own extension channel. Never a shared/undefined slot.
 - 76972de: A2.1: `discoverProviders` now resolves injected (`window.canton` scan) entries to
   their REAL identity and tags `identityResolved` (additive):
+
   - when a sync `provider.id` or a `status().provider.id` probe yields a real id,
     the entry's `id` IS that id (not the `'canton'` scan path id) and
     `identityResolved: true`, so the SDK identity-bridge matches the right wallet
@@ -235,6 +274,7 @@
   of who owns `window.canton`.
 
   New additive exports on `@partylayer/provider`:
+
   - `discoverAnnouncedProviders(options?)`: dispatches `canton:requestProvider`
     and resolves each `canton:announceProvider` reply to a working CIP-0103
     provider.
@@ -268,6 +308,7 @@
   any other adapter.
 
 - c18a275: Add framework-agnostic session React hooks (Step 6b), additively.
+
   - **@partylayer/react**: new `useAccount()` and `useAccountEffect()` hooks
     (wagmi parity) backed by the `@partylayer/session` core via
     `useSyncExternalStore` (SSR-safe). `PartyLayerProvider` now creates and

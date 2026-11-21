@@ -1,0 +1,357 @@
+name: Nightly Assurance
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY THIS EXISTS (institutional note)
+#
+# PR-time CI proves a CHANGE is green. It does NOT prove that `main` still builds
+# tomorrow (transitive-dependency drift, a yanked sub-dependency, a toolchain
+# bump) nor that the packages we PUBLISHED are coherent for real consumers
+# (validate:publish runs PRE-publish, against the workspace — it cannot see a
+# post-publish npm-resolution break, a missing `dist`, or a bad `exports` map).
+#
+# So this workflow runs nightly (and on demand) with three independent jobs:
+#   1. gate-main          — the full gate on a clean checkout of main (drift).
+#   2. npm-consumer-canary — install the PUBLISHED @partylayer/* from npm into a
+#                            CLEAN dir with NO workspace links, and tsc-compile a
+#                            smoke file against the surfaces users import. This is
+#                            the ONLY check that exercises exactly what `npm i`
+#                            gives a downstream user.
+#   3. session-persistence-e2e — a real-browser (Chromium) smoke of the
+#                            secure-by-default session: connect → encrypted
+#                            IndexedDB → reload-restore → multi-tab. Nightly +
+#                            on-demand only (NOT PR-gated — flakiness risk).
+#
+# Scope discipline: this does NOT touch examples.yml (monorepo build canary).
+# Distinct purpose, distinct file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 03:17 UTC daily — off-peak, prime-ish minute to avoid the top-of-hour rush.
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  gate-main:
+    name: Gate (main, drift detection)
+    runs-on: linux-xarm90
+    steps:
+      - uses: actions/checkout@v18
+        with:
+          ref: main
+          # Full history + tags: gate:release-changeset compares each package
+          # against its `<name>@<version>` release tag.
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '23'
+          cache: 'pnpm'
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+      - name: Full gate
+        run: pnpm gate
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Nightly — Gate (main)" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Runs the full \`pnpm gate\` against a clean checkout of \`main\`." >> $GITHUB_STEP_SUMMARY
+          echo "A failure here that did NOT fail on the last PR means environment or" >> $GITHUB_STEP_SUMMARY
+          echo "transitive-dependency drift — \`main\` no longer builds as-is." >> $GITHUB_STEP_SUMMARY
+
+  npm-consumer-canary:
+    name: npm consumer canary (published packages)
+    runs-on: linux-xarm90
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Install published packages into a clean, link-free dir + tsc smoke
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/pl-consumer-canary"
+          rm -rf "$DIR"; mkdir -p "$DIR"; cd "$DIR"
+          npm init -y >/dev/null
+
+          # Install exactly what a real downstream consumer of BOTH the React and Vue
+          # bindings installs: the @partylayer/* packages plus their runtime peers.
+          #
+          # The peers are REQUIRED for honest resolution (no --force/--legacy-peer-deps):
+          #   react@^18 + react-dom@^18      -> peer of @partylayer/react
+          #   @tanstack/react-query@^5       -> peer of @partylayer/react (the /query hooks)
+          #   vue@^3.4                       -> peer of @partylayer/vue (needs >=3.4.0)
+          #   @tanstack/vue-query@^5         -> peer of @partylayer/vue
+          #   @tanstack/query-core@^5        -> peer of @partylayer/testing/query
+          #
+          # Pin vue@^3.4 EXPLICITLY. If vue is left unspecified, npm satisfies
+          # @tanstack/vue-query's loose peer (vue "^2.6.0 || ^3.3.0") with vue@2.6.14,
+          # which then conflicts with @partylayer/vue's vue >=3.4.0 peer and fails with
+          # ERESOLVE. vue@^3.4 satisfies both ranges, so resolution is clean. Do NOT
+          # "simplify" this back to dropping the explicit vue pin.
+          npm install --no-fund --no-audit \
+            @partylayer/sdk@latest \
+            @partylayer/react@latest \
+            @partylayer/provider@latest \
+            @partylayer/adapter-send@latest \
+            @partylayer/session@latest \
+            @partylayer/vue@latest \
+            @partylayer/testing@latest \
+            react@^18 react-dom@^18 \
+            vue@^3.4 \
+            @tanstack/react-query@^5 \
+            @tanstack/vue-query@^5 \
+            @tanstack/query-core@^5 \
+            typescript@^5
+
+          echo "Installed versions:"
+          for p in sdk react provider adapter-send session vue testing; do
+            # Read package.json via a direct filesystem path — `require('@partylayer/x/package.json')`
+            # is blocked by the packages' `exports` maps (ERR_PACKAGE_PATH_NOT_EXPORTED).
+            node -e "const fs=require('fs');const n=process.argv[1];const v=JSON.parse(fs.readFileSync('node_modules/@partylayer/'+n+'/package.json','utf8')).version;console.log('  @partylayer/'+n, v)" "$p"
+          done
+
+          # Smoke: type-check the key public surfaces against the PUBLISHED .d.ts.
+          # (skipLibCheck isolates the check to OUR usage, not deep dep types.)
+          cat > tsconfig.json <<'JSON'
+          {
+            "compilerOptions": {
+              "target": "es2022",
+              "module": "esnext",
+              "moduleResolution": "bundler",
+              "strict": true,
+              "noEmit": true,
+              "skipLibCheck": true,
+              "types": []
+            },
+            "files": ["smoke.ts"]
+          }
+          JSON
+
+          cat > smoke.ts <<'TS'
+          // Surfaces a downstream consumer imports. Compiles against PUBLISHED .d.ts.
+          import { createPartyLayer, GenericAnnounceAdapter } from '@partylayer/sdk';
+          // 1.0: encrypted-storage default + the session store, now PUBLISHED.
+          import { createSessionStore, createEncryptedIndexedDBStorage } from '@partylayer/session';
+          import { createProviderBridge } from '@partylayer/provider';
+          // react@2.0.0: the reactive session hooks + a component prop type.
+          import { useSession, usePartyState, type WalletModalProps } from '@partylayer/react';
+          // react@2.0.0: the TanStack Query data layer lives on the /query subpath.
+          // Importing from it verifies that entrypoint's published types resolve for
+          // consumers (this would catch a /query packaging or type regression).
+          import { useDamlContract, useTransactionCostEstimate } from '@partylayer/react/query';
+          import { SendAdapter } from '@partylayer/adapter-send';
+          // vue@1.0.0 composables + provisioning.
+          import { useSession as useVueSession, useAccount as useVueAccount, provideSessionStore } from '@partylayer/vue';
+          // testing@1.x: BOTH entry points: main (session harness) + the /query subpath.
+          import { createSessionHarness } from '@partylayer/testing';
+          import { createTestQueryClient } from '@partylayer/testing/query';
+
+          export const _surfaces = [
+            createPartyLayer,
+            GenericAnnounceAdapter,
+            createSessionStore,
+            createEncryptedIndexedDBStorage,
+            createProviderBridge,
+            useSession,
+            usePartyState,
+            useDamlContract,
+            useTransactionCostEstimate,
+            SendAdapter,
+            useVueSession,
+            useVueAccount,
+            provideSessionStore,
+            createSessionHarness,
+            createTestQueryClient,
+          ] as const;
+          export type _ModalProps = WalletModalProps;
+          TS
+
+          npx tsc -p tsconfig.json
+          echo "✓ consumer smoke compiled against published @partylayer/* surfaces"
+          node "$GITHUB_WORKSPACE/scripts/security/audit-consumer.mjs" "$DIR" "$RUNNER_TEMP/public-consumer-audit.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-consumer-security-audit
+          path: ${{ runner.temp }}/public-consumer-audit.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Nightly — npm consumer canary" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Installs the PUBLISHED \`@partylayer/*\` packages from npm into a clean" >> $GITHUB_STEP_SUMMARY
+          echo "dir (NO workspace links) and \`tsc\`-compiles a smoke importing the key" >> $GITHUB_STEP_SUMMARY
+          echo "public surfaces. A failure means published-package INCOHERENCE that" >> $GITHUB_STEP_SUMMARY
+          echo "\`validate:publish\` cannot see post-publish: a broken \`exports\` map," >> $GITHUB_STEP_SUMMARY
+          echo "a missing \`dist\`, an unresolvable dependency, or a .d.ts that no longer" >> $GITHUB_STEP_SUMMARY
+          echo "type-checks for downstream consumers." >> $GITHUB_STEP_SUMMARY
+
+  session-persistence-e2e:
+    name: Session persistence e2e (real browser)
+    runs-on: linux-xarm90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v8
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace packages
+        run: pnpm -r --filter "@partylayer/*" build
+      - name: Install Playwright Chromium
+        run: pnpm --filter partylayer-demo exec playwright install --with-deps chromium
+      - name: Session persistence smoke
+        run: pnpm --filter partylayer-demo exec playwright test session-persistence
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Nightly — session persistence e2e" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Real-browser (Chromium) smoke of the 1.0 secure-by-default session:" >> $GITHUB_STEP_SUMMARY
+          echo "connect → encrypted IndexedDB persistence → page reload → restore →" >> $GITHUB_STEP_SUMMARY
+          echo "multi-tab. Uses @partylayer/testing browser primitives. Nightly +" >> $GITHUB_STEP_SUMMARY
+          echo "on-demand only — NOT PR-gated (real-browser flakiness risk)." >> $GITHUB_STEP_SUMMARY
+
+  mock-e2e:
+    name: Mock E2E + security (full demo suite)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '23'
+          cache: 'pnpm'
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace packages
+        run: pnpm -r --filter "@partylayer/*" build
+      - name: Install Playwright Chromium
+        run: pnpm --filter partylayer-demo exec playwright install --with-deps chromium
+      - name: Full mock E2E + security suite
+        # The WHOLE demo e2e suite (mock fixture) — every transport, multi-tab,
+        # sign/bridge, theme, the 4 security tests. The per-PR gate runs only the
+        # fast/stable subset (smoke + connect + security via verify:e2e); this
+        # nightly job runs the rest so the broader coverage can't silently rot.
+        # No mock ENV VAR: there isn't one, and there never was one that worked.
+        # The suite is "mock" because the demo injects a CIP-0103 provider fixture
+        # (apps/demo/public/mock-cip0103-wallet.js) at window.canton.demoWallet
+        # from a sync script tag, gated on NODE_ENV !== 'production'. Playwright's
+        # webServer runs `next dev`, so the fixture is present. This command used
+        # to carry a NEXT_PUBLIC_MOCK_WALLETS=1 prefix that no product code read.
+        run: pnpm --filter partylayer-demo exec playwright test
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Nightly — mock E2E + security (full suite)" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The full apps/demo e2e suite, against the CIP-0103 provider fixture:" >> $GITHUB_STEP_SUMMARY
+          echo "every transport (injected/announce/remote-signer/walletconnect)," >> $GITHUB_STEP_SUMMARY
+          echo "multi-tab, sign-and-bridge, theme, and the 4 security tests. The" >> $GITHUB_STEP_SUMMARY
+          echo "per-PR gate runs only the fast/stable subset (smoke + connect +" >> $GITHUB_STEP_SUMMARY
+          echo "security) — heavier/flakier specs are quarantined to nightly." >> $GITHUB_STEP_SUMMARY
+
+  manual-coverage:
+    name: Manual coverage (by-hand specs still current)
+    runs-on: linux-xarm90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Manual run ledger is current
+        # Some specs CANNOT run in CI — the a2 pair loads real unpacked
+        # extensions into a headed Chromium, which a hosted runner cannot do. They
+        # used to carry `|| !!process.env.CI`, so they never ran where they were
+        # reported and sat green while asserting nothing for three months.
+        #
+        # This checks a ledger of by-hand runs instead: each entry must name the
+        # extension versions and the actual result, not just a date. It lives in
+        # the nightly rather than `pnpm gate` on purpose — a check that blocks
+        # every PR until someone runs an extension test by hand gets cleared by
+        # typing a date. Here, a stale record opens a tracking issue through the
+        # failure sink, and nobody's work stops.
+        run: node scripts/gate/manual-coverage.mjs
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FAILURE SINK (institutional note)
+  #
+  # This workflow failed 38 consecutive nights (2026-07-30 .. 2026-09-05) on one
+  # stale assertion, and nobody noticed. Not because the signal was subtle — it
+  # was a hard, deterministic, single-test failure — but because a SCHEDULED
+  # workflow has nowhere to surface:
+  #
+  #   * It is not a required check, and cannot be: branch protection lists
+  #     `build-and-test` and `pnpm gate`, and a `schedule` run has no PR context.
+  #   * Its check-run attaches to whatever sha main happened to have at 03:17 UTC
+  #     — a commit nobody revisits. After a merge, "is main green?" asks about the
+  #     NEW head, where the nightly has not run at all.
+  #   * The legacy combined-status rollup on such a sha reads `success`, because
+  #     the only contexts writing statuses are the deploy previews. The failure
+  #     exists solely as a check-run.
+  #   * The workflow had no failure handling of any kind.
+  #
+  # So the fix is not a louder red X — it is a durable artefact that lives where
+  # people already look: an open issue. One issue, reused. It is opened on the
+  # first failure (which notifies), its body is refreshed every night (which does
+  # not, so a long outage cannot spam), a comment is posted only when the SET of
+  # failing jobs changes (that is new information), and it closes itself when a
+  # run is fully green.
+  #
+  # The body carries a consecutive-night counter on purpose. "Failing" is easy to
+  # skim past; "failing for 38 nights" is not, and that number is precisely the
+  # one whose absence let this sit.
+  # ─────────────────────────────────────────────────────────────────────────────
+  failure-sink:
+    name: Failure sink (tracking issue)
+    needs: [gate-main, npm-consumer-canary, session-persistence-e2e, mock-e2e, manual-coverage]
+    # `always()` so the sink runs whether the nightly passed (to close a stale
+    # issue) or failed (to open one). Without it this job would be skipped on the
+    # exact runs it exists for.
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      # Least privilege: the sink only ever touches issues. Scoped to this job so
+      # the build jobs above keep the repository default.
+      issues: write
+    steps:
+      # The sink's logic lives in a checked-in .cjs file rather than inline YAML
+      # so it can be read, linted, and unit-tested like code. That needs the repo
+      # on disk, hence the checkout in an otherwise build-free job.
+      - uses: actions/checkout@v4
+      - name: Open, update, or close the nightly tracking issue
+        uses: actions/github-script@v7
+        env:
+          R_GATE: ${{ needs.gate-main.result }}
+          R_CANARY: ${{ needs.npm-consumer-canary.result }}
+          R_SESSION: ${{ needs.session-persistence-e2e.result }}
+          R_MOCK: ${{ needs.mock-e2e.result }}
+          R_MANUAL: ${{ needs.manual-coverage.result }}
+        with:
+          script: |
+            const script = require('.github/scripts/nightly-failure-sink.cjs');
+            await script({ github, context, core });

@@ -38,9 +38,9 @@ CI runs this exact command on every PR to `main` (see
 | `pnpm gate:api` | Diffs each published package's **type surface** (`<pkg>.api.d.ts`, Prettier-normalized) **and packaging surface** (`<pkg>.pkg.json`) against committed snapshots. Fails on any change to a public export, a `peerDependencies` range, an `exports` subpath, `bin`, etc. |
 | `pnpm gate:api:update` | **Intentionally** accepts API/packaging changes by rewriting both snapshot kinds. Run this (and commit) when a change is deliberate. |
 | `pnpm gate:registry` | Validates `registry/v1/{stable,beta}/registry.json` against `tooling/registry-schema/registry.schema.json` and asserts CIP-0103-native wallets keep their `cip0103.native` flag. |
-| `pnpm gate:docs-drift` | Guards the docs that exist as both `docs/<slug>.md` and a hand-authored site page (`apps/demo/src/app/docs/<slug>/content.tsx`) from silently diverging, by comparing their section-heading sets. Fails naming the pair and which side is missing which heading. The pair list is derived (a new doc added in both places must be classified). `quick-start` is a documented exception: the markdown and the page are different documents. |
+| `pnpm gate:docs-drift` | Guards the docs that exist as both `docs/<slug>.md` and a hand-authored site page (`apps/demo/src/app/docs/<slug>/content.tsx`) from silently diverging, by comparing their section-heading sets. Fails naming the pair and which side is missing which heading. The pair list is derived (a new doc added in both places must be classified). `quick-start` now follows the same installation, framework setup, configuration and verification journey in both renderings. |
 | `pnpm gate:release-changeset` | Fails when a publishable package's shipping content changed since its `<name>@<version>` release tag but no changeset covers it, so a release would ship nothing for it. Compares `src/` (minus tests), committed `files`-allowlist directories other than `dist` (e.g. `create-partylayer-app/templates`), and consumer-facing `package.json` fields. See "Release changeset guard" below for the escape hatch and the tag requirement. |
-| `pnpm gate:discovery-demos` | Fails when the stable registry lists a discovery-adapter (Path B) wallet that a showcase demo (`apps/tokenization`, `apps/dvp`) does not wire, so a new such wallet cannot be silently forgotten (the SDK hides an unwired discovery-adapter entry, so it would be invisible). Names the wallet, its package, and the app. A demo may deliberately omit a wallet via the documented `EXCEPTIONS` list in the check, the same pattern docs-drift uses for quick-start. |
+| `pnpm gate:discovery-demos` | Fails when the stable registry lists a discovery-adapter (Path B) wallet that a showcase demo (`apps/tokenization`, `apps/dvp`) does not wire, so a new such wallet cannot be silently forgotten (the SDK hides an unwired discovery-adapter entry, so it would be invisible). Names the wallet, its package, and the app. A demo may deliberately omit a wallet via the documented `EXCEPTIONS` list in the check, with an explicit reason recorded in the check. |
 | `pnpm gate:adapters-closed` | Fails when a directory appears under `packages/adapters` that is not in the frozen legacy allowlist. A wallet integrates through the generic Path A (announce) or Path B (official `ProviderAdapter`) and ships no PartyLayer-specific code; the packages there predate those paths and are kept for compatibility. The failure names the directory, prints the one line decision rule and the guide URL, and points at the allowlist. Editing `LEGACY_ADAPTERS` in the check is the deliberate escape hatch and must be justified in the pull request. |
 
 ## How to intentionally update the API snapshot
@@ -61,14 +61,19 @@ the snapshot files — that is the whole point.
 
 Two committed artifacts per package, under `tooling/api-snapshots/`:
 
-- **`<pkg>.api.d.ts`** — the published `.d.ts` (the `types`/`exports` entry),
-  run through Prettier (repo config) before both writing and diffing so
-  cosmetic ordering/whitespace can never cause a false failure.
+- **`<pkg>.api.d.ts`** — the published `.d.ts` entry plus every reachable local
+  declaration chunk. Relative imports, re-exports, import types and reference paths
+  are followed with cycle/duplicate protection; external packages stay external.
+  Each file uses the existing AST canonical, keeping formatting and comments out
+  of the comparison. A missing local declaration fails the gate. Unchunked entries
+  retain their existing canonical form.
 - **`<pkg>.pkg.json`** — normalized JSON of `{ name, main, module, types,
-  exports, bin, peerDependencies }`. **`version` is excluded** (it changes
-  every release and isn't part of the consumer contract). Keys are sorted
-  recursively. This catches packaging breakage — a tightened `peerDependencies`
-  range or a removed `exports` subpath — that never appears in the `.d.ts`.
+  exports, imports, bin, peerDependencies, peerDependenciesMeta }`.
+  **`version` is excluded** (it changes every release). Ordinary metadata maps are
+  sorted, but `exports` and `imports` preserve source order recursively: Node tests
+  conditions in that order, so placing `default` before `import` can select another
+  runtime. Optional peer changes are also consumer-visible. These checks catch
+  packaging changes that never appear in a declaration entry.
 
 The set is **auto-discovered**: every workspace package with `"private": false`
 and a `"types"` entry, minus `EXCLUDED_PACKAGES` in `api-snapshot.mjs`. New

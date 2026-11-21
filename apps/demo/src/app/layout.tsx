@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { WebsiteAnalytics } from './components/WebsiteAnalytics';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://partylayer.xyz'),
   title: {
-    default: 'PartyLayer — One SDK for Every Canton Wallet',
+    default: 'PartyLayer — Canton Wallet SDK & React Connect Kit',
     template: '%s | PartyLayer',
   },
   description:
-    'Open-source wallet integration SDK for Canton Network. Connect Console Wallet, 5N Loop, Cantor8, Nightly, and Bron with a single unified API. React hooks, Vanilla JS, CIP-0103 support, and registry-backed wallet verification.',
+    'CIP-0103 compliant Canton wallet integration. Install the React kit once for supported wallet runtimes, a branded Connect Wallet button, themes and typed APIs.',
   keywords: [
     'Canton wallet',
     'Canton Network',
@@ -32,7 +33,10 @@ export const metadata: Metadata = {
     'wallet registry',
   ],
   icons: {
-    icon: '/favicon-new.svg',
+    icon: [
+      { url: '/favicon-new.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
+    ],
   },
   openGraph: {
     type: 'website',
@@ -41,24 +45,24 @@ export const metadata: Metadata = {
     // No `url` here on purpose. openGraph.url is inherited by every descendant
     // route, so a value set at the root makes each page announce the homepage's
     // identity. Each route sets its own alongside its canonical.
-    title: 'PartyLayer — One SDK for Every Canton Wallet',
+    title: 'PartyLayer — Canton Wallet SDK & React Connect Kit',
     description:
-      'Open-source wallet integration SDK for Canton Network. Connect any Canton wallet with a single unified API.',
+      'CIP-0103 compliant Canton wallet integration with included supported wallet runtimes and a branded React connection UI.',
     images: [
       {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'PartyLayer — One SDK for Every Canton Wallet',
+        alt: 'PartyLayer — Canton Wallet SDK & React Connect Kit',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@partylayerkit',
-    title: 'PartyLayer — One SDK for Every Canton Wallet',
+    title: 'PartyLayer — Canton Wallet SDK & React Connect Kit',
     description:
-      'Open-source wallet integration SDK for Canton Network. Connect any Canton wallet with a single unified API.',
+      'CIP-0103 compliant Canton wallet integration with included supported wallet runtimes and a branded React connection UI.',
     images: ['/opengraph-image'],
   },
   // No `alternates.canonical` here on purpose. Next.js inherits root metadata
@@ -100,7 +104,7 @@ const softwareJsonLd = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web',
   description:
-    'CIP-0103 compliant wallet integration SDK for the Canton Network — registry-backed, verified wallets, and a clean developer experience.',
+    'CIP-0103 wallet integration SDK for the Canton Network, with a wallet catalog, React connection UI and TypeScript APIs.',
 };
 
 export default function RootLayout({
@@ -166,6 +170,7 @@ export default function RootLayout({
           <script src="/mock-cip0103-wallet.js" />
         )}
         {children}
+        <WebsiteAnalytics />
       </body>
     </html>
   );

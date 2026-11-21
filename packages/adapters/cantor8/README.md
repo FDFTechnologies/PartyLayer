@@ -1,5 +1,12 @@
 # @partylayer/adapter-cantor8
 
+> **Default application integration:** The React kit already includes this compatibility
+> runtime where applicable. Install `@partylayer/react @tanstack/react-query` in one
+> command and use `PartyLayerKit` with `ConnectButton`; no per-wallet package
+> installation is required. See [the quick start](https://partylayer.xyz/docs/quick-start).
+> The instructions below are for explicitly using this standalone compatibility package.
+> Native provider paths and limits are recorded in the [integration matrix](https://github.com/PartyLayer/PartyLayer/blob/main/docs/wallet-cip0103-matrix.md).
+
 > **Legacy integration.** This package predates the generic bridge and is kept for
 > compatibility; a new wallet should not copy this pattern. New wallets integrate
 > through Path A or Path B with no PartyLayer-specific code, see
@@ -37,8 +44,16 @@ npm install @partylayer/adapter-cantor8
 ```typescript
 import { createPartyLayer } from '@partylayer/sdk';
 
-const client = createPartyLayer({ network: 'devnet' });
-await client.connect({ walletId: 'cantor8' });
+const client = createPartyLayer({
+  network: 'devnet',
+  app: { name: 'My Canton dApp' },
+});
+// Call from your Connect button's click handler.
+export async function connectWallet() {
+  const wallet = (await client.listWallets()).find(wallet => wallet.walletId === 'cantor8');
+  if (!wallet) throw new Error('cantor8 is unavailable on this network');
+  return client.connect({ walletId: wallet.walletId });
+}
 ```
 
 ---

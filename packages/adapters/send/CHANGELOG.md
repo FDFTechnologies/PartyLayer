@@ -1,5 +1,72 @@
 # @partylayer/adapter-send
 
+## 1.2.11
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+  - @partylayer/provider@0.6.2
+
+## 1.2.10
+
+### Patch Changes
+
+- c130fc4: Correct SDK README examples to include the required application configuration. Show Send's Mainnet kit integration and explicit compatibility setup without duplicate registration, and document Bron's application-owned OAuth/API requirements. These complete examples now compile against the public package declarations in the documentation gate.
+
+## 1.2.9
+
+### Patch Changes
+
+- Preserve valid wallet-reported ledger completion offsets in transaction receipts.
+
+- 0ebd598: Stop reporting wallets as installed when nothing was installed.
+
+  `detectInstalled()` could only answer yes or no, and eight of twelve adapters had
+  no honest way to answer it — a QR wallet, a hosted popup, a relay and an OAuth
+  service have no local artefact to probe. They answered `true`, meaning
+  "reachable", and the picker read it as "installed". Cantor8 is not an extension
+  at all: its tile said installed, and clicking it opened a tab.
+
+  `AdapterDetectResult` gains `availability`, which says what presence actually is:
+  `installed`, `not-installed` (probed and absent, with an install URL),
+  `no-local-install` (QR / popup / relay — nothing to probe), or `unknown` (the
+  probe failed or timed out, which is not proof of absence). `installed` is
+  deprecated in its JSDoc, still populated, and exactly
+  `availability.kind === 'installed'`, so no consumer breaks.
+
+  **The false `true` was load-bearing.** `installGuard` read `installed` and threw
+  `WalletNotInstalledError` on false — so returning the truth would have blocked
+  connect for every wallet that has nothing to install. Making the adapters honest
+  broke connect for all of them until the guard was changed to ask its real
+  question: not "is it installed" but "do we already know this cannot work", which
+  only `not-installed` answers yes to. That coupling is why this is one contract
+  change rather than eight independent bug fixes.
+
+  Vendor `detect()` is no longer called for `discovery-adapter` wallets. All three
+  implementations are constants (`walley`: `window.open` exists; `cauri`:
+  `Promise.resolve(true)`; `oneswap`: `typeof window !== 'undefined'`), so awaiting
+  them bought no information while adding an async hop to the picker's render path
+  and a dependency on three third parties answering honestly. A `discovery-adapter`
+  transport IS the answer; the rule is applied in exactly one place.
+
+  The picker's subtitles for the two wallets measured causing real harm now say
+  what a click will do: "Scan to connect — nothing to install" and "Opens in a
+  popup — nothing to install".
+
+  `docs/adapters.md` records which adapters probe what, and one mismatch still
+  outstanding: Cantor8 classifies as `scan` but opens a tab, a registry-data fix
+  queued with the D5/D6 registry work.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+  - @partylayer/provider@0.6.1
+
 ## 1.2.8
 
 ### Patch Changes
@@ -69,6 +136,7 @@
   boundary (`LedgerApiParams`) accepts a friendly superset, `requestMethod` in
   either case (plus `PATCH`) and `body` as a JSON string **or** a plain object, and
   each adapter normalizes to what its wallet requires:
+
   - **CIP-0103 `window.canton` RPC wallets**, Send, Console, Nightly,
     WalletConnect, and the SDK announce bridge, get a **lower-case** verb + an
     **object** body, per the canonical CIP-0103 OpenRPC `LedgerApiRequest` schema
@@ -98,6 +166,7 @@
 ### Minor Changes
 
 - a3f2ea4: Fix the announce-discovery race: a wallet that announces (`canton:announceProvider`) **after** the one-shot request window, or on inject before any request, was missed, surfacing as `Wallet "…" did not announce`.
+
   - **@partylayer/provider** (additive): new `subscribeAnnouncedProviders(onProvider, opts)`, a PERSISTENT (EIP-6963-style) announce subscription that captures late and inject-time announces until the returned unsubscribe runs, and `waitForAnnouncedProvider(predicate, { timeoutMs })`, which resolves the moment a matching announce arrives (vs a fixed window). The existing one-shot `discoverAnnouncedProviders` / `discoverProviders` are **unchanged**.
   - **@partylayer/sdk** (patch): the client mounts one persistent accumulator at construction (read by `aggregateAnnouncedWallets`, torn down in `destroy()`), so a late/inject-time announce surfaces in `listWallets()`. No public API change.
   - **@partylayer/adapter-send** (minor): `SendProvider` resolves its channel via resolve-on-arrival (`waitForProvider`), so a late Send announce is no longer missed. Detect and connect now use **split bounds** mirroring the EIP-6963 reactive-readiness model: `detectInstalled`/`isInstalled` waits ~1000ms (best-effort readiness, won't stall the UI when Send is absent; the persistent accumulator self-corrects a later announce), while the deliberate connect/request path waits 3000ms. New `SendProviderOptions.detectTimeoutMs` (default 1000) alongside `announceTimeoutMs` (default 3000). The legacy `SendProviderOptions.discover` hook is **kept (deprecated)**, wrapped for backward compatibility.
@@ -192,6 +261,7 @@ account.networkId ?? ctx.network` (prefer the wallet-reported network), so the
   "kernel.id does not match Send" and Send was unconnectable.
 
   `SendProvider` now:
+
   - detects Send via `discoverAnnouncedProviders` from `@partylayer/provider`
     (matching the announce id against the registry `ProviderDetection`
     `provider.id` matchers ∪ `SEND_KNOWN_EXTENSION_IDS`), and

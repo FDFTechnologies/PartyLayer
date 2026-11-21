@@ -38,7 +38,7 @@ interface PartyLayerConfig {
   crypto?: CryptoAdapter;
   /** Registry public keys for signature verification */
   registryPublicKeys?: string[];
-  /** Wallet adapters (default: all built-in: Console, Loop, Cantor8, Nightly) */
+  /** Optional explicit wallet list; omitted to use the browser's default catalog */
   adapters?: (WalletAdapter | AdapterClass | OfficialProviderAdapter | OfficialAdapterFactory)[];
   /** Announce-based wallet discovery */
   discovery?: {
@@ -51,6 +51,28 @@ interface PartyLayerConfig {
   logger?: LoggerAdapter;
 }
 ```
+
+### Session cryptography
+
+Core 0.16.1 and SDK 0.22.1 require cryptographically secure randomness for new
+session identifiers. The browser uses `globalThis.crypto.getRandomValues`.
+`generateSessionId()` remains synchronous and throws when that source is unavailable.
+Session identifiers correlate client state; they are not application authentication
+credentials or proof of ledger authority.
+
+For a native runtime without that global API, supply a `crypto` adapter with
+`randomBytes(byteLength)`, returning a `Uint8Array` of exactly the requested length
+or a Promise for it. The adapter must use a platform cryptographic random source.
+Its encryption key or key handle must never be reused as an identifier. Browser
+clients with WebCrypto retain the synchronous connection path needed by popup wallets.
+
+The default crypto adapter uses AES-GCM and requires WebCrypto. It rejects unavailable
+cryptography, invalid keys and unauthenticated ciphertext instead of falling back to
+plain base64. Valid existing AES-GCM caches remain readable; unsupported legacy cache
+records are discarded and require a wallet reconnect. A native custom adapter must
+provide authenticated encryption and matching decryption as well as key generation.
+Local cache encryption does not establish wallet identity or authorize server
+requests; restored state still requires the documented wallet-side validation.
 
 ---
 
@@ -153,13 +175,23 @@ registerAdapter(adapter: WalletAdapter): void
 
 #### asProvider
 
-Get a CIP-0103 compliant Provider that wraps this client.
+Get one stable provider facade for this client.
 
 ```typescript
 asProvider(): CIP0103Provider
 ```
 
-Returns a Provider that routes all `request()` calls through the client's session and adapter. Supports all 10 mandatory CIP-0103 methods. See [CIP-0103 Compliance](../README.md#cip-0103-canton-dapp-standard-compliance) for details.
+For browser-native connections, account methods return real wallet accounts and
+key metadata; Ledger API requests forward path/query/header fields and return raw
+JSON. The official discovery client owns that native connection. Message signing
+retains the reviewed encoding/normalization policy. Existing compatibility
+integrations and explicit `createProviderBridge(client)` preserve their old
+one-party/`{ response: string }` behavior. `client.ledgerApi()` is unchanged.
+Migrate native `asProvider` ledger consumers to use raw JSON instead of parsing
+`result.response`. Genuine native events pass through; the compatibility bridge
+requires real signature or ledger update/offset evidence for signed/executed events.
+See [CIP-0103 alignment and limits](./CIP-0103-ALIGNMENT.md) and
+[Protocol ownership](./protocol-ownership.md).
 
 #### on / off
 
@@ -222,6 +254,19 @@ import { PartyLayerKit } from '@partylayer/react';
 | `adapters` | `(WalletAdapter \| AdapterClass)[]` | Built-in adapters | Custom adapters |
 | `theme` | `'light' \| 'dark' \| 'auto' \| PartyLayerTheme` | `'light'` | Theme preset or custom theme |
 | `walletIcons` | `Record<string, string>` | `{}` | Custom wallet icon URLs by walletId |
+| `authentication` | `PartyLayerAuthenticationAdapter` | Omitted | Application backend challenge/verify/session/logout integration |
+
+With `authentication` configured, `ConnectButton` adds explicit sign-in and app
+sign-out. `useAuthentication()` exposes `status`, `identity`, `isPending`, `canSignIn`, `error`,
+`signIn()`, `signOut()` and `refresh()`. For advanced compositions, nest
+`PartyLayerAuthenticationProvider` inside `PartyLayerProvider`.
+
+The server-safe `@partylayer/core/authentication` subpath exports `createAuthenticationChallenge`,
+`formatAuthenticationMessage`, `validateAuthenticationChallenge` and
+`verifyAuthenticationProof`. The application supplies atomic, browser-bound
+challenge consumption and a verifier that checks both signature bytes and party
+authority. See [Application authentication](./authentication.md) for the complete
+backend contract and session/cookie requirements.
 
 ### ConnectButton
 
@@ -241,12 +286,73 @@ import { ConnectButton } from '@partylayer/react';
 | `formatAddress` | `(partyId: string) => string` |, | Custom address formatter |
 | `className` | `string` |, | CSS class |
 | `style` | `CSSProperties` |, | Inline styles |
-| `showDisconnect` | `boolean` | `true` | Show disconnect in dropdown |
+| `showDisconnect` | `boolean` | `true` | Show account dropdown and disconnect; false is a compact display without the menu |
+| `holdings` | `AccountHoldings` | Omitted | Authorized holdings bound to exact party and CAIP-2 network; rendered in the account panel only on a scope match |
 
 **States:**
 - **Disconnected**: Brand yellow button, opens WalletModal on click
 - **Connecting**: Disabled with spinner animation
 - **Connected**: Compact button showing truncated party ID, dropdown with disconnect
+
+The account dropdown exposes menu semantics and keyboard navigation: Arrow Up/Down,
+Home/End, Escape to close and restore the trigger, and Tab to leave. The wallet
+dialog moves focus inside, contains Tab navigation and restores the opener on close.
+These controls do not submit an enclosing application form.
+
+The account panel shows the connected network, wrong-network recovery guidance,
+and recent activity recorded through `useTransactionFlow`. Account/network changes
+are performed in the wallet; no nonstandard switch method is implied.
+
+### Transaction flow and recent activity
+
+`useTransactionFlow({ confirm?, confirmationTimeoutMs? })` returns `transaction`,
+`transactions`, `isPending`, `submitTransaction(params)` and `reconcile(id)`.
+Its lifecycle status is `awaitingApproval`, `submitted`, `confirmed`, `rejected`,
+`failed` or `unknown`. Only a read-only application ledger lookup with a real
+update id produces `confirmed`; no acknowledgement or time delay does so.
+
+`PartyLayerProvider`/`PartyLayerKit` includes the in-memory journal, consumed by
+`ConnectButton` and `useRecentTransactions()`. `RecentTransactions` accepts
+`transactions` and optional `limit` for a custom view. Existing direct SDK and
+mutation calls are not automatically journaled. `TransactionToast` accepts these
+six lifecycle states as well as its existing `idle`/`pending`/`success`/`error`
+states; legacy `success` still says submitted, not confirmed.
+
+Ledger-write query hooks always set `retry: false`, overriding global and explicit
+retry options to prevent replay after a possibly accepted request. Read-query
+retries are unaffected. See [Transaction lifecycle](./transaction-lifecycle.md).
+
+`TokenBalances` accepts `owner`, `holdings`, `loading`, `error` and an optional
+`formatInstrument({ admin, id })`. The query subpath exports
+`summarizeTokenHoldings(holdings, owner)` and `sumTokenAmounts(amounts)` for exact
+decimal string summaries. The framework-free server/vanilla summation helper is
+also available from `@partylayer/core/amounts`. Common Holding types now live in
+core and remain re-exported through the same existing React/query names.
+See [Wallet balances](./wallet-balances.md) for authorized read/data requirements.
+
+### PartyLayerLocaleProvider
+
+Use `PartyLayerKit locale="ar-SA"` for Arabic wallet UI with automatic RTL.
+Fourteen language catalogs are supported: `en`, `tr`, `es`, `fr`, `de`, `pt`,
+`it`, `ru`, `ar`, `hi`, `id`, `ja`, `ko` and `zh` (Simplified Chinese). Regional
+variants share a catalog; unsupported languages/scripts fall back to English.
+Advanced compositions can use `PartyLayerLocaleProvider`. Both providers accept
+`locale?: string` and an optional `direction?: 'ltr' | 'rtl'` override.
+
+English/Turkish render synchronously. Other catalogs load on demand, using English
+for deterministic initial server/hydration output and retaining the previous
+language while switching. Locale changes preserve the client and active wallet.
+Application content and vendor approval screens keep their own language settings.
+
+### LanguageSelector
+
+An optional controlled language picker: `<LanguageSelector value={locale}
+onChange={setLocale} />`. Use it inside the kit/provider. It supports native-name
+search, keyboard navigation, accessible announcements, focus restoration and
+mobile/light/dark layouts. `value` and `onChange` use `PartyLayerLocale`;
+`aria-label`, `className` and `style` customize its surrounding application UI.
+The exported `partyLayerLocales` array provides codes, native/English names and
+directions for custom selectors. See the [React guide](../packages/react/README.md#ui-language-and-direction).
 
 ### WalletModal
 

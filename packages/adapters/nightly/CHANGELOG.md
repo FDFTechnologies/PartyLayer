@@ -1,10 +1,115 @@
 # @partylayer/adapter-nightly
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+
+## 0.3.2
+
+### Patch Changes
+
+- c130fc4: Correct SDK README examples to include the required application configuration. Show Send's Mainnet kit integration and explicit compatibility setup without duplicate registration, and document Bron's application-owned OAuth/API requirements. These complete examples now compile against the public package declarations in the documentation gate.
+
+## 0.3.1
+
+### Patch Changes
+
+- Return an unconfirmed submission acknowledgement when approval includes no ledger update id. Do not mislabel a signature as a transaction hash.
+
+- 0ebd598: Stop reporting wallets as installed when nothing was installed.
+
+  `detectInstalled()` could only answer yes or no, and eight of twelve adapters had
+  no honest way to answer it — a QR wallet, a hosted popup, a relay and an OAuth
+  service have no local artefact to probe. They answered `true`, meaning
+  "reachable", and the picker read it as "installed". Cantor8 is not an extension
+  at all: its tile said installed, and clicking it opened a tab.
+
+  `AdapterDetectResult` gains `availability`, which says what presence actually is:
+  `installed`, `not-installed` (probed and absent, with an install URL),
+  `no-local-install` (QR / popup / relay — nothing to probe), or `unknown` (the
+  probe failed or timed out, which is not proof of absence). `installed` is
+  deprecated in its JSDoc, still populated, and exactly
+  `availability.kind === 'installed'`, so no consumer breaks.
+
+  **The false `true` was load-bearing.** `installGuard` read `installed` and threw
+  `WalletNotInstalledError` on false — so returning the truth would have blocked
+  connect for every wallet that has nothing to install. Making the adapters honest
+  broke connect for all of them until the guard was changed to ask its real
+  question: not "is it installed" but "do we already know this cannot work", which
+  only `not-installed` answers yes to. That coupling is why this is one contract
+  change rather than eight independent bug fixes.
+
+  Vendor `detect()` is no longer called for `discovery-adapter` wallets. All three
+  implementations are constants (`walley`: `window.open` exists; `cauri`:
+  `Promise.resolve(true)`; `oneswap`: `typeof window !== 'undefined'`), so awaiting
+  them bought no information while adding an async hop to the picker's render path
+  and a dependency on three third parties answering honestly. A `discovery-adapter`
+  transport IS the answer; the rule is applied in exactly one place.
+
+  The picker's subtitles for the two wallets measured causing real harm now say
+  what a click will do: "Scan to connect — nothing to install" and "Opens in a
+  popup — nothing to install".
+
+  `docs/adapters.md` records which adapters probe what, and one mismatch still
+  outstanding: Cantor8 classifies as `scan` but opens a tab, a registry-data fix
+  queued with the D5/D6 registry work.
+
+- 8cb0f09: Report what the wallet actually said, and hold the connect deadline you set.
+
+  Two defects in one place. `mapUnknownErrorToPartyLayerError` classified errors by
+  scanning their prose, and both the refusal branch and the timeout branch drew the
+  wrong conclusion from it.
+
+  **A wallet refusing is no longer reported as the user cancelling.** Any message
+  containing `rejected`, `denied`, `cancelled` or `canceled` collapsed into
+  `USER_REJECTED`. Nightly declining because the tab was unfocused — "Connect
+  request rejected - tab is not active" — told the dApp the user had clicked
+  cancel, when no prompt had been shown at all. Classification now prefers
+  structured signals (EIP-1193 `4001`, `err.name`), then phrasing that names the
+  user; anything else that reads as a refusal becomes the new `WALLET_REFUSED`
+  code, carrying the wallet's own words in `message` and `details.originalMessage`.
+
+  **A timeout now reports the deadline that actually elapsed.** `context.timeoutMs`
+  took precedence over the figure already present in the message, so a connect that
+  ran the full two minutes was reported as "timed out after 30000ms" — the SDK held
+  two independent defaults, `120000` at the race and `30000` in the catch block that
+  formatted the error. There is now one exported `DEFAULT_CONNECT_TIMEOUT_MS`, the
+  message's own number wins over context, and an unknown deadline says "timed out"
+  rather than inventing "after 0ms".
+
+  **A timeout now cancels.** `Promise.race` never stopped the loser, so a connect
+  that had timed out kept its popup, QR overlay or socket live and could still
+  complete against a caller that had given up. `connect()` receives an
+  `AbortSignal` that fires when the deadline does. Adapters that ignore it behave
+  exactly as before.
+
+  The Nightly adapter had the same shape internally: its protocol names the
+  outcome (`sign_request_rejected`) and it degraded that to prose for the mapper to
+  recognise, with a comment noting the word "rejected" was load-bearing. All three
+  sites now throw the typed error where the type is known, so a Nightly decline no
+  longer depends on string matching to be classified correctly.
+
+  `WALLET_REFUSED` is additive. Code branching on `USER_REJECTED` for a genuine
+  cancellation is unaffected; code that was relying on `USER_REJECTED` to catch
+  wallet-side refusals should now also handle `WALLET_REFUSED`.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+
 ## 0.3.0
 
 ### Minor Changes
 
 - a0292e5: **These calls now throw where they previously returned a value:**
+
   - **`ConsoleAdapter.connect`** — when the wallet reports no party id.
   - **`ConsoleAdapter.signTransaction`** — when the wallet returns no signature. Note this call _never_ failed before: it generated a hash on every invocation regardless of what the wallet said.
   - **`ConsoleAdapter.submitTransaction`** — when the wallet returns no signature.
@@ -43,12 +148,14 @@
   This exists so that a transfer does not have to be routed through `ledgerApi`. A generic proxy pointed at the interactive-submission endpoints is a request to sign arbitrary bytes: the wallet cannot decode what was asked for, so it cannot render a meaningful confirmation, so the user approves a hash. `ledgerApi` is unchanged, and this method sits alongside it.
 
   New in `@partylayer/core`:
+
   - `TransferIntent`, `TransferResult`, `TokenInstrumentId`
   - `toTransferIntent()` and `TRANSFER_INTENT_FIELDS` — the field allowlist every adapter builds its wallet request through, so a caller-supplied option cannot reach a wallet
   - `WalletAdapter.requestTransfer?()` — optional; a wallet that cannot both return a real update id and show an explicit user approval does not implement it
   - `CapabilityKey` gains `'transfer'`; `ErrorMappingContext.phase` gains `'requestTransfer'`
 
   New in `@partylayer/sdk`:
+
   - `PartyLayerClient.requestTransfer()`, which narrows the intent through the allowlist before any adapter sees it and throws `CapabilityNotSupportedError` when the active wallet does not implement it
 
   Additive throughout: no existing method signature, adapter contract, or published interface changes. Ask before calling with `session.capabilitiesSnapshot.includes('transfer')`, or require it at connect with `connect({ requiredCapabilities: ['transfer'] })`.
@@ -56,6 +163,7 @@
   `TransferResult.updateId` is required and always real. An adapter that cannot obtain one throws rather than substituting a command id, a submission id, a signature, or a generated string.
 
   Implemented natively by three adapters, each mapping the intent onto its wallet's own typed transfer:
+
   - **Console** — `submitCommands`, with the update id read from the `txChanged` stream and correlated to the call by signature. Requires `executeBefore`, and carries `meta` only as a single `memo`; both are refused rather than silently dropped.
   - **Nightly** — `createTransferCommand` + `submitTransactionCommand`. The only one of the three that carries the instrument's issuing admin through to the wallet.
   - **Loop** — the SDK's `transfer()` in `wait` mode, which is where `RunTransactionResponse.update_id` is populated.
@@ -114,6 +222,7 @@
   boundary (`LedgerApiParams`) accepts a friendly superset, `requestMethod` in
   either case (plus `PATCH`) and `body` as a JSON string **or** a plain object, and
   each adapter normalizes to what its wallet requires:
+
   - **CIP-0103 `window.canton` RPC wallets**, Send, Console, Nightly,
     WalletConnect, and the SDK announce bridge, get a **lower-case** verb + an
     **object** body, per the canonical CIP-0103 OpenRPC `LedgerApiRequest` schema

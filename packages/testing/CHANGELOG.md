@@ -1,5 +1,33 @@
 # @partylayer/testing
 
+## 1.1.12
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+  - @partylayer/provider@0.6.2
+  - @partylayer/session@1.1.11
+
+## 1.1.11
+
+### Patch Changes
+
+- Give the offline client explicit mock signature and ledger-offset evidence.
+  Keep timeout outcomes unknown instead of labeling them transaction rejection:
+  `transactionTimeout` now uses -32603 with timeout data, replacing its incorrect
+  -32003 code. Update offline examples for session validation before submission.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+  - @partylayer/provider@0.6.1
+  - @partylayer/session@1.1.9
+
 ## 1.1.10
 
 ### Patch Changes
@@ -117,6 +145,7 @@
 
   `@partylayer/testing` becomes a public, stable package providing everything
   needed to test PartyLayer integrations with no DevNet or live wallet:
+
   - **Mock CIP-0103 provider** with configurable per-method failure scenarios
     (connect rejection, insufficient traffic, synchronizer error, transaction
     timeout), conformant by construction.

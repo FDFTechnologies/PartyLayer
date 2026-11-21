@@ -16,6 +16,8 @@ const nextConfig = {
   },
   // Produce a self-contained standalone server bundle for host-node deployment.
   output: 'standalone',
+  // Next 15 makes tracing root a stable top-level option.
+  outputFileTracingRoot: path.resolve(__dirname, '../../'),
   transpilePackages: [
     '@partylayer/react',
     '@partylayer/sdk',
@@ -28,13 +30,6 @@ const nextConfig = {
     '@partylayer/adapter-nightly',
     '@partylayer/provider',
   ],
-  // Ensure ESM packages work correctly
-  experimental: {
-    esmExternals: 'loose',
-    // Monorepo root so standalone file-tracing includes the workspace
-    // @partylayer/* packages that live above apps/demo.
-    outputFileTracingRoot: path.resolve(__dirname, '../../'),
-  },
   // Webpack configuration to resolve workspace packages
   webpack: (config, { isServer, dev }) => {
     // Use memory cache in dev to prevent stale chunk errors after file edits
@@ -45,11 +40,14 @@ const nextConfig = {
     // Resolve workspace packages
     config.resolve.alias = {
       ...config.resolve.alias,
+      // Workspace library tests still use React 18. The application and every
+      // transpiled library must share ONE React Query context under React 19.
+      '@tanstack/react-query': path.dirname(require.resolve('@tanstack/react-query/package.json')),
       // Exact-match ($) so bare `@partylayer/react` resolves here as before, while
       // subpaths like `@partylayer/react/query` fall through to the package exports.
       '@partylayer/react$': path.resolve(__dirname, '../../packages/react'),
       '@partylayer/sdk': path.resolve(__dirname, '../../packages/sdk'),
-      '@partylayer/core': path.resolve(__dirname, '../../packages/core'),
+      '@partylayer/core$': path.resolve(__dirname, '../../packages/core'),
       '@partylayer/registry-client': path.resolve(__dirname, '../../packages/registry-client'),
       '@partylayer/adapter-console': path.resolve(__dirname, '../../packages/adapters/console'),
       '@partylayer/adapter-loop': path.resolve(__dirname, '../../packages/adapters/loop'),

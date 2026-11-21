@@ -1,10 +1,116 @@
 # @partylayer/adapter-console
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+
+## 0.5.1
+
+### Patch Changes
+
+- c130fc4: Correct SDK README examples to include the required application configuration. Show Send's Mainnet kit integration and explicit compatibility setup without duplicate registration, and document Bron's application-owned OAuth/API requirements. These complete examples now compile against the public package declarations in the documentation gate.
+
+## 0.5.0
+
+### Minor Changes
+
+- Remove the unsupported sign-only capability. The vendor's `submitCommands` signs
+  and sends; `signTransaction` now rejects without calling it. Applications that
+  intend to submit must use `submitTransaction` explicitly.
+- Submission acknowledgements no longer mislabel signatures as ledger transaction
+  hashes. Wait for a ledger update before displaying confirmation.
+
+### Patch Changes
+
+- 5a13fea: Stop reporting a timed-out extension probe as a confident "not installed".
+
+  Read from the vendor's published source rather than assumed:
+  `@console-wallet/dapp-sdk`'s `checkExtensionAvailability()`
+  (`dist/esm/requests/checkAvailability.js`, byte-identical in 2.2.8, 2.2.9 and
+  2.2.10-beta.1) resolves `{ status: 'notInstalled' }` on its 1000ms timeout and
+  its outer `catch` returns that value — it never throws. It also writes that
+  verdict to a module-level cache with no invalidation and no reset export, and its
+  type admits only `'installed' | 'notInstalled'`, so the vendor cannot express
+  "did not answer in time" at all.
+
+  This adapter handled the timeout in a `catch`, which the vendor never triggers.
+  The `{ kind: 'unknown' }` branch added for exactly this case was unreachable, and
+  one slow probe made the picker claim the extension was absent for the life of the
+  page — with an Install link, for an extension the user already has. Reloading was
+  the only recovery.
+
+  A `notInstalled` answer is now treated as unproven and confirmed with one
+  `status()` call, which the SDK also exports, which is not cached, and which
+  rejects rather than resolving a verdict. Three outcomes instead of two: it
+  answers (installed), it rejects (absent), or our own 2500ms budget expires
+  (`unknown`, saying so). The budget is ours because the vendor's is not
+  configurable, and 1000ms is shorter than the 5000ms its own `status()` allows —
+  which is why a cold MV3 service-worker start loses the race.
+
+  The confirming probe is not cached on our side, deliberately: caching a negative
+  is the defect, and a user can install the extension without reloading the page.
+  The cost is one bounded probe per detect when the vendor says `notInstalled`.
+
+  The test that covered this mocked `checkExtensionAvailability` REJECTING —
+  a shape the vendor never produces — so it passed while the real path was
+  unreachable. It is replaced by three cases fed the shape the vendor actually
+  returns; all three fail against the previous code.
+
+- 0ebd598: Stop reporting wallets as installed when nothing was installed.
+
+  `detectInstalled()` could only answer yes or no, and eight of twelve adapters had
+  no honest way to answer it — a QR wallet, a hosted popup, a relay and an OAuth
+  service have no local artefact to probe. They answered `true`, meaning
+  "reachable", and the picker read it as "installed". Cantor8 is not an extension
+  at all: its tile said installed, and clicking it opened a tab.
+
+  `AdapterDetectResult` gains `availability`, which says what presence actually is:
+  `installed`, `not-installed` (probed and absent, with an install URL),
+  `no-local-install` (QR / popup / relay — nothing to probe), or `unknown` (the
+  probe failed or timed out, which is not proof of absence). `installed` is
+  deprecated in its JSDoc, still populated, and exactly
+  `availability.kind === 'installed'`, so no consumer breaks.
+
+  **The false `true` was load-bearing.** `installGuard` read `installed` and threw
+  `WalletNotInstalledError` on false — so returning the truth would have blocked
+  connect for every wallet that has nothing to install. Making the adapters honest
+  broke connect for all of them until the guard was changed to ask its real
+  question: not "is it installed" but "do we already know this cannot work", which
+  only `not-installed` answers yes to. That coupling is why this is one contract
+  change rather than eight independent bug fixes.
+
+  Vendor `detect()` is no longer called for `discovery-adapter` wallets. All three
+  implementations are constants (`walley`: `window.open` exists; `cauri`:
+  `Promise.resolve(true)`; `oneswap`: `typeof window !== 'undefined'`), so awaiting
+  them bought no information while adding an async hop to the picker's render path
+  and a dependency on three third parties answering honestly. A `discovery-adapter`
+  transport IS the answer; the rule is applied in exactly one place.
+
+  The picker's subtitles for the two wallets measured causing real harm now say
+  what a click will do: "Scan to connect — nothing to install" and "Opens in a
+  popup — nothing to install".
+
+  `docs/adapters.md` records which adapters probe what, and one mismatch still
+  outstanding: Cantor8 classifies as `scan` but opens a tab, a registry-data fix
+  queued with the D5/D6 registry work.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+
 ## 0.4.0
 
 ### Minor Changes
 
 - a0292e5: **These calls now throw where they previously returned a value:**
+
   - **`ConsoleAdapter.connect`** — when the wallet reports no party id.
   - **`ConsoleAdapter.signTransaction`** — when the wallet returns no signature. Note this call _never_ failed before: it generated a hash on every invocation regardless of what the wallet said.
   - **`ConsoleAdapter.submitTransaction`** — when the wallet returns no signature.
@@ -43,12 +149,14 @@
   This exists so that a transfer does not have to be routed through `ledgerApi`. A generic proxy pointed at the interactive-submission endpoints is a request to sign arbitrary bytes: the wallet cannot decode what was asked for, so it cannot render a meaningful confirmation, so the user approves a hash. `ledgerApi` is unchanged, and this method sits alongside it.
 
   New in `@partylayer/core`:
+
   - `TransferIntent`, `TransferResult`, `TokenInstrumentId`
   - `toTransferIntent()` and `TRANSFER_INTENT_FIELDS` — the field allowlist every adapter builds its wallet request through, so a caller-supplied option cannot reach a wallet
   - `WalletAdapter.requestTransfer?()` — optional; a wallet that cannot both return a real update id and show an explicit user approval does not implement it
   - `CapabilityKey` gains `'transfer'`; `ErrorMappingContext.phase` gains `'requestTransfer'`
 
   New in `@partylayer/sdk`:
+
   - `PartyLayerClient.requestTransfer()`, which narrows the intent through the allowlist before any adapter sees it and throws `CapabilityNotSupportedError` when the active wallet does not implement it
 
   Additive throughout: no existing method signature, adapter contract, or published interface changes. Ask before calling with `session.capabilitiesSnapshot.includes('transfer')`, or require it at connect with `connect({ requiredCapabilities: ['transfer'] })`.
@@ -56,6 +164,7 @@
   `TransferResult.updateId` is required and always real. An adapter that cannot obtain one throws rather than substituting a command id, a submission id, a signature, or a generated string.
 
   Implemented natively by three adapters, each mapping the intent onto its wallet's own typed transfer:
+
   - **Console** — `submitCommands`, with the update id read from the `txChanged` stream and correlated to the call by signature. Requires `executeBefore`, and carries `meta` only as a single `memo`; both are refused rather than silently dropped.
   - **Nightly** — `createTransferCommand` + `submitTransactionCommand`. The only one of the three that carries the instrument's issuing admin through to the wallet.
   - **Loop** — the SDK's `transfer()` in `wait` mode, which is where `RunTransactionResponse.update_id` is populated.
@@ -126,6 +235,7 @@
   boundary (`LedgerApiParams`) accepts a friendly superset, `requestMethod` in
   either case (plus `PATCH`) and `body` as a JSON string **or** a plain object, and
   each adapter normalizes to what its wallet requires:
+
   - **CIP-0103 `window.canton` RPC wallets**, Send, Console, Nightly,
     WalletConnect, and the SDK announce bridge, get a **lower-case** verb + an
     **object** body, per the canonical CIP-0103 OpenRPC `LedgerApiRequest` schema
@@ -248,6 +358,7 @@
   CantonConnect provides a WalletConnect-like experience for Canton Network dApps, enabling seamless integration with multiple Canton wallets through a unified API.
 
   Features:
+
   - Support for Console Wallet, 5N Loop, Cantor8, and Bron wallets
   - React hooks and components for easy integration
   - TypeScript support with full type definitions

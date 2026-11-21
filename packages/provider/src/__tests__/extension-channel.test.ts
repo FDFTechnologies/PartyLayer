@@ -9,10 +9,11 @@
  * that breaks consumer bundles).
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExtensionChannelProvider } from '../extension-channel';
 import { discoverAnnouncedProviders, isCIP0103Provider } from '../discovery';
-import { ProviderRpcError } from '../errors';
+import { JSON_RPC_ERRORS, ProviderRpcError } from '../errors';
+import type { CIP0103RequestPayload } from '@partylayer/core';
 
 type Reply = (req: { id: string; method: string; params?: unknown }) =>
   | { result: unknown }
@@ -47,6 +48,54 @@ afterEach(() => {
 });
 
 describe('createExtensionChannelProvider', () => {
+  it.each([
+    { name: 'null envelope', payload: null, code: JSON_RPC_ERRORS.INVALID_REQUEST },
+    { name: 'array envelope', payload: [], code: JSON_RPC_ERRORS.INVALID_REQUEST },
+    { name: 'missing method', payload: {}, code: JSON_RPC_ERRORS.INVALID_REQUEST },
+    { name: 'numeric method', payload: { method: 7 }, code: JSON_RPC_ERRORS.INVALID_REQUEST },
+    { name: 'null params', payload: { method: 'status', params: null }, code: JSON_RPC_ERRORS.INVALID_PARAMS },
+    { name: 'boolean params', payload: { method: 'status', params: false }, code: JSON_RPC_ERRORS.INVALID_PARAMS },
+    { name: 'numeric params', payload: { method: 'futureMethod', params: 7 }, code: JSON_RPC_ERRORS.INVALID_PARAMS },
+    { name: 'string params', payload: { method: 'futureMethod', params: 'invalid' }, code: JSON_RPC_ERRORS.INVALID_PARAMS },
+  ])('rejects $name without posting, listening or scheduling a timeout', async ({ payload, code }) => {
+    vi.useFakeTimers();
+    const provider = createExtensionChannelProvider({ target: 'fixture' });
+    const listen = vi.spyOn(window, 'addEventListener');
+    const post = vi.spyOn(window, 'postMessage');
+    try {
+      const result = provider.request(payload as unknown as CIP0103RequestPayload);
+      void result.catch(() => {});
+      expect(result).toBeInstanceOf(Promise);
+      expect(listen).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      await expect(result).rejects.toBeInstanceOf(ProviderRpcError);
+      await expect(result).rejects.toMatchObject({ code, message: expect.stringMatching(/\S/) });
+    } finally {
+      provider.destroy();
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { name: 'omitted params', payload: { method: 'futureMethod' } },
+    { name: 'undefined params', payload: { method: 'futureMethod', params: undefined } },
+    { name: 'object params', payload: { method: 'futureMethod', params: { enabled: true } } },
+    { name: 'array params', payload: { method: 'futureMethod', params: ['value', 7] } },
+    { name: 'empty method string', payload: { method: '' } },
+  ])('round-trips a valid unknown method with $name', async ({ payload }) => {
+    stop = mockExtension(request => ({ result: request }));
+    const provider = createExtensionChannelProvider({ target: 'fixture' });
+    try {
+      const result = await provider.request<{ method: string; params?: unknown }>(payload);
+      expect(result.method).toBe(payload.method);
+      expect(result.params).toEqual('params' in payload ? payload.params : undefined);
+    } finally {
+      provider.destroy();
+    }
+  });
+
   it('is a CIP-0103 provider', () => {
     const p = createExtensionChannelProvider({ target: 't' });
     expect(isCIP0103Provider(p)).toBe(true);
@@ -139,6 +188,44 @@ describe('createExtensionChannelProvider', () => {
     expect(p.removeListener('x', fn)).toBe(p);
     p.emit('x');
     expect(called).toBe(1);
+  });
+
+  it('forwards only same-window, same-origin notifications for its own target', () => {
+    const a = createExtensionChannelProvider({ target: 'a' });
+    const b = createExtensionChannelProvider({ target: 'b' });
+    const alice = vi.fn(); const bob = vi.fn();
+    a.on('accountsChanged', alice); b.on('accountsChanged', bob);
+    const data = { type: 'SPLICE_WALLET_REQUEST', target: 'a', request: {
+      jsonrpc: '2.0', method: 'accountsChanged', params: [{ partyId: 'party::alice' }],
+    } };
+    window.dispatchEvent(new MessageEvent('message', { data, source: window, origin: 'https://foreign.test' }));
+    window.dispatchEvent(new MessageEvent('message', { data, source: null, origin: window.location.origin }));
+    expect(alice).not.toHaveBeenCalled();
+    window.dispatchEvent(new MessageEvent('message', { data, source: window, origin: window.location.origin }));
+    expect(alice).toHaveBeenCalledTimes(1);
+    expect(alice).toHaveBeenCalledWith([{ partyId: 'party::alice' }]);
+    expect(bob).not.toHaveBeenCalled();
+    a.destroy(); b.destroy();
+  });
+
+  it('does not attach a DOM listener until used and removes it after the last subscriber', () => {
+    const add = vi.spyOn(window, 'addEventListener'); const remove = vi.spyOn(window, 'removeEventListener');
+    const provider = createExtensionChannelProvider({ target: 'cleanup' });
+    expect(add).not.toHaveBeenCalled();
+    const handler = vi.fn(); provider.on('txChanged', handler);
+    const callback = add.mock.calls.find(([name]) => name === 'message')?.[1];
+    expect(callback).toBeDefined();
+    provider.removeListener('txChanged', handler);
+    expect(remove).toHaveBeenCalledWith('message', callback);
+    provider.destroy(); add.mockRestore(); remove.mockRestore();
+  });
+
+  it('destroy rejects an in-flight RPC and prevents a later request from starting', async () => {
+    const provider = createExtensionChannelProvider({ target: 'cleanup' });
+    const request = provider.request({ method: 'connect' });
+    const rejected = expect(request).rejects.toMatchObject({ code: 4900 });
+    provider.destroy(); await rejected;
+    await expect(provider.request({ method: 'connect' })).rejects.toMatchObject({ code: 4900 });
   });
 });
 

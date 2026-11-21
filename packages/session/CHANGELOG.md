@@ -1,5 +1,33 @@
 # @partylayer/session
 
+## 1.1.11
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+
+## 1.1.10
+
+### Patch Changes
+
+- Route React's base and Query disconnect hooks through the shared session store so explicit logout cancels reconnect and participates in opt-in tab synchronization. Receiving tabs also disconnect their provider owner once without rebroadcasting, keeping SDK and reactive account UI consistent. Preserve async hook errors and direct-client fallback. Add real-browser restore, cross-tab logout and revoked-wallet cache checks to PR validation.
+
+## 1.1.9
+
+- Allow frameworks to defer provider/BroadcastChannel subscriptions until init.
+  Prevent a destroyed store from persisting late restores or starting queued writes.
+
+### Patch Changes
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+
 ## 1.1.8
 
 ### Patch Changes
@@ -110,6 +138,7 @@
 
   `@partylayer/session` is the framework-agnostic session core for Canton dApps.
   This release makes secure persistence the default and marks the API stable:
+
   - **Secure by default.** With no `storage` configured, sessions persist to
     encrypted IndexedDB (AES-GCM-256, non-extractable origin-bound key) where the
     platform supports it, falling back to in-memory otherwise; `persistSnapshot`
@@ -145,6 +174,7 @@
   of restored snapshot vs live wallet status). Honest threat model documented:
   protects at-rest data + casual inspection; does NOT defend same-origin XSS.
 - ae3e889: Session resilience. ADDITIVE, opt-in.
+
   - **Automatic reconnect** with exponential backoff (`RetryPolicy { baseDelayMs,
 factor, maxDelayMs, maxAttempts, jitter? }`, sane defaults; `reconnect` option
     `RetryPolicy | false`). Fires ONLY on transient provider-driven disconnects;
@@ -162,6 +192,7 @@ factor, maxDelayMs, maxAttempts, jitter? }`, sane defaults; `reconnect` option
   `enqueue`; `SessionStoreOptions` gains `reconnect` + `expiry`.
 
 - 63a9ac5: Multi-tab sync + party-switch + network-change invalidation. ADDITIVE, opt-in.
+
   - **Multi-tab** via BroadcastChannel (`broadcast` option; origin-bound channel
     using the origin-bound originTag pattern; injectable `channelFactory`). Disconnect in one
     tab propagates to all tabs; a receiving tab applies WITHOUT rebroadcasting

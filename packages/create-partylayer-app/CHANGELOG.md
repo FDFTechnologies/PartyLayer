@@ -1,5 +1,51 @@
 # create-partylayer-app
 
+## 0.7.2
+
+### Patch Changes
+
+- 118db04: Update offline integration diagnostics to the published SDK 0.21.0 / React 3.3.0
+  baseline. Older installations receive a migration-guide warning without importing
+  application code, reading credentials, installing packages or changing files.
+
+## 0.7.1
+
+### Patch Changes
+
+- a3e52c2: Correct the README's outdated Node 18 minimum to Node 20.12.0 and document that offline Doctor diagnostics are available from CLI 0.7.0.
+- de16860: Move the Next.js SSR starter to the patched Next 15.5.28 maintenance line and React 19, use asynchronous request cookies, and label the persisted cookie identity as a display hint until the wallet is revalidated. The demo and Studio use the same patched framework line with asynchronous route parameters.
+
+## 0.7.0
+
+- Align the declared Node minimum (20.12.0) with the existing prompt-library requirement; add a direct-runtime engine compatibility check.
+
+### Minor Changes
+
+- Add read-only `--doctor [directory] [--json]` installation diagnostics for existing applications. Report unresolved packages, incompatible peers and Node engines, duplicate React/query contexts and competing lockfiles without executing application code or changing project files. Preserve all existing scaffolding and installer recovery behavior.
+
+## 0.6.2
+
+### Patch Changes
+
+- c130fc4: Report dependency installation failures with a nonzero exit code, keep the generated project, show package-manager diagnostics and print the complete recovery commands. Failed or unlaunchable installs no longer report successful setup. Successful installation and explicit no-install scaffolding keep their existing flows.
+
+## 0.6.1
+
+### Patch Changes
+
+- ea0de53: Describe Canton Network wallet integration, CIP-0103 support and framework-specific entry points in npm metadata. Link packages to the relevant setup guides and improve discovery with relevant keywords. Runtime APIs and wallet capability contracts are unchanged.
+
+## 0.6.0
+
+### Minor Changes
+
+- Document all six shipped templates, automatic dependency installation, wallet configuration
+  and the limits of SSR UI cookies and in-memory vertical demos.
+
+- Include the reviewed, pinned Walley, Cauri, OneSwap and Vala official SDKs in the existing SDK with lazy loading through the generic CIP-0103 bridge. React and generated projects use the same default catalog without wallet-specific imports or installation. WalletConnect and Bron use shared application configuration; custom adapters can replace or extend defaults.
+
+  Filter wallets by the configured network and channel, align discovery capabilities with implemented methods, warm popup connections before returning the picker list, and validate restored official providers instead of reviving expired sessions. Vala remains Devnet beta.
+
 ## 0.5.4
 
 ### Patch Changes

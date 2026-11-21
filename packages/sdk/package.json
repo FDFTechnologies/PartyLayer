@@ -1,8 +1,8 @@
 {
   "name": "@partylayer/sdk",
-  "version": "0.19.0",
+  "version": "0.22.1",
   "sideEffects": false,
-  "description": "Main SDK for PartyLayer - Unified wallet integration for Canton Network",
+  "description": "TypeScript wallet integration SDK for Canton Network, with CIP-0103 provider access, wallet discovery, sessions and supported wallet runtimes.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.mjs",
+      "require": "./dist/native.js"
     }
   },
   "files": [
@@ -27,7 +32,13 @@
     "canton",
     "wallet",
     "sdk",
-    "dapp"
+    "dapp",
+    "canton-network",
+    "cip-0103",
+    "wallet-integration",
+    "wallet-discovery",
+    "typescript",
+    "web3"
   ],
   "author": "PartyLayer Contributors",
   "license": "MIT",
@@ -36,23 +47,40 @@
     "url": "https://github.com/PartyLayer/PartyLayer.git",
     "directory": "packages/sdk"
   },
-  "homepage": "https://partylayer.xyz",
+  "homepage": "https://partylayer.xyz/docs/vanilla-js",
   "bugs": {
     "url": "https://github.com/PartyLayer/PartyLayer/issues"
   },
   "dependencies": {
-    "@partylayer/core": "workspace:^",
-    "@partylayer/registry-client": "workspace:^",
+    "@canton-network/core-types": "1.14.0",
+    "@canton-network/core-wallet-discovery": "1.16.0",
+    "@canton-network/dapp-sdk": "0.24.0",
+    "@k2flabs/walley-dapp-sdk": "1.2.0",
+    "@lithiumdigital/cauri-dapp-sdk": "0.2.0",
+    "@partylayer/adapter-bron": "workspace:^",
+    "@partylayer/adapter-cantor8": "workspace:^",
     "@partylayer/adapter-console": "workspace:^",
     "@partylayer/adapter-loop": "workspace:^",
-    "@partylayer/adapter-cantor8": "workspace:^",
-    "@partylayer/adapter-bron": "workspace:^",
     "@partylayer/adapter-nightly": "workspace:^",
     "@partylayer/adapter-send": "workspace:^",
-    "@partylayer/provider": "workspace:^"
+    "@partylayer/adapter-walletconnect": "workspace:^",
+    "@partylayer/core": "workspace:^",
+    "@partylayer/provider": "workspace:^",
+    "@partylayer/registry-client": "workspace:^",
+    "@vala-wallet/dapp-sdk": "0.1.0",
+    "@walletconnect/sign-client": "^2.26.0",
+    "@walletconnect/types": "^2.26.0"
   },
   "devDependencies": {
+    "@oneswap/wallet-cip0103-adapter": "0.2.0",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3"
+  },
+  "imports": {
+    "#partylayer-hosted-wallet-profiles": {
+      "types": "./dist/internal/hosted-wallet-profiles.d.ts",
+      "import": "./dist/internal/hosted-wallet-profiles.mjs",
+      "require": "./dist/internal/hosted-wallet-profiles.js"
+    }
   }
 }

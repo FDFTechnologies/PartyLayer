@@ -1,0 +1,116 @@
+# Canton wallet platform roadmap
+
+PartyLayer's target is a ready-made Canton wallet experience comparable to
+RainbowKit's developer and user experience. This is a product target, not a claim
+of completed feature parity. The default wallet catalog release is the foundation;
+the remaining milestones below require their own implementation and evidence.
+
+## Developer contract
+
+### Implementation checkpoint: 2026-11-15
+
+The published web baseline is SDK 0.22.1, React 3.4.0 and CLI 0.7.2. The coordinated
+release includes the operation kit and reviewed fourteen-language experience.
+The table records implementation and acceptance boundaries, not universal wallet
+or native-platform certification.
+
+| Area | Implementation | Acceptance boundary |
+| --- | --- | --- |
+| Authorized data | Ready wallet and same-origin application ledger readers; exact holdings snapshots, identity/source isolation and explicit errors | Configure the deployed interface/source and validate actual wallet/participant access |
+| Transaction inclusion | Update/original-command correlation, read-only reconciliation, no automatic write retry | App-owned intent/operation semantics and live transfer or swap settlement |
+| Reload recovery | Opt-in minimal pending journal in the same React package; restored state is unknown, never resubmitted | Browser data is not trusted financial intent or a full-history indexer |
+| Application sign-in | Runnable PostgreSQL reference with real configured crypto, atomic browser-bound nonce consumption, opaque sessions and narrow authorized reads | Independently provision party/key authority and validate each vendor signing profile |
+| Transfer/swap guidance | Wallet approval path, current context/disclosures, direct/offer semantics and an explicit OneSwap protocol settlement recipe | Funded live operation and vendor configuration; maintainer deferred these user-assisted tests |
+| Compatibility | Official discovery 1.16.0, Cantor8 0.9.0, WalletConnect 2.26.0 and the demo wallet SDK 1.6.0; registry-derived asset capabilities replace the stale demo shape | Required release gates, public-package verification and final vendor acceptance |
+| Registry trust | Persistent signed bytes re-verified under current roots; URL/channel isolation, rotation/retirement and late-storage tests; kit accepts optional roots | Production signing remains intentionally inactive; key custody/activation was deferred |
+| UI assurance | Chromium, Firefox and WebKit automated UI/accessibility matrix with desktop and emulated mobile profiles | Physical devices, complete spoken screen-reader flows and vendor popup/biometric acceptance |
+
+The default install and branded button contract below remain unchanged. No new
+wallet-specific PartyLayer package, universal switch-account RPC, EVM ABI layer
+or cross-chain product is introduced. Independent integrations and an external
+audit require evidence from the participating teams; no internal test is recorded
+as that external evidence.
+
+The merged operation-kit implementation adds a local preview of reviewed
+send and accept/reject/withdraw UI, separately correlated transfer outcomes,
+account-aware HoldingV2 reads and a V1/V2 server allowlist, legacy OAuth callback
+completion, current-baseline migration diagnostics and website audience
+measurement. See [the operation contract](operation-kit.md) and
+[website measurement](website-analytics.md). SDK 0.22.0, React 3.4.0 and CLI 0.7.2
+are published. All nineteen selected versions have verified public bytes, latest
+tags, registry signatures and exact-workflow provenance; see the
+[release evidence](releases/canton-operation-kit-2026-11-14.md). Website-only
+changes follow separate deployment/measurement checks. The existing Connect Wallet design is retained;
+the new operation entry point remains in the same React package. Physical-device,
+funded transfer and swap acceptance follow the maintainer's separately scheduled
+wallet tests. Production registry-key activation and AI/agent work are not part
+of this approval.
+
+Installed-consumer corrections were published on 2026-11-15: core 0.16.1, SDK 0.22.1,
+React Native 2.0.0, conformance-runner 0.2.13 and registry-cli 0.1.15.
+They correct CLI version output,
+OneSwap's older-core runtime peer and native production dependency isolation,
+require secure session entropy and remove weak cryptography fallbacks.
+React Native 2.0 explicitly separates native and web setup with migration notes;
+the browser SDK/default wallet catalog remains the same contract. All five public
+versions, SHA-512 bytes and exact-workflow provenance are verified. See the
+[correction release evidence](releases/consumer-installation-corrections-2026-11-15.md).
+
+An existing React application installs `@partylayer/react` and its React Query peer
+in one npm command, configures `PartyLayerKit`, and renders `ConnectButton`.
+Supported wallet runtimes come with that integration. Developers do not install or
+register a PartyLayer package for each wallet. WalletConnect project IDs, enterprise
+credentials, network selection and beta opt-in remain explicit application settings.
+
+Starters use the ready-made button and show **Powered by PartyLayer** by default.
+Custom interfaces and attribution configuration remain available. English is the
+canonical language for repository, website and API documentation; product UI
+translations are a separate feature.
+
+## Milestones and completion evidence
+
+| Milestone                              | Current evidence                                                                                                                   | Required before completion                                                                                                                                                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default installation and discovery     | SDK 0.20.0 / React 3.1.0 / CLI 0.6.0 were published on 2026-10-24; unauthenticated npm installation, public CLI Next.js/Vite builds, ESM, CommonJS and SSR checks passed | Keep starter/docs versions aligned and repeat appropriate public-consumer checks for future releases                                                                                                                                    |
+| Branded connection experience          | `ConnectButton`, wallet modal, themes, avatars and default attribution exist                                                       | Verify the full mobile/desktop connection journey, retry, rejection, popup/extension availability, custom UI and styling behavior                                                                                                              |
+| Accounts, parties and networks         | Session hooks, persistence, network filtering, actual-network account UI and wallet-side change/reconnect guidance exist | Complete supported account/party selection and live change handling; prevent stale account or network state across every supported transport |
+| Authentication                         | Optional backend integration, ready-made sign-in/out UI, server challenge helpers and replay/stale-account tests exist; see `authentication.md` | Validate each deployed backend's signature algorithm and independently authorized party keys, shared atomic nonce storage, CSRF/browser binding and server-session enforcement; complete live wallet authentication acceptance |
+| Transactions and holdings              | Six-state transaction flow, independent read-only reconciliation, scoped recent-activity UI, authorized exact-decimal holdings UI and cost UI exist; writes never automatically replay | Validate each app's authorized/complete holdings and full-history data sources; complete actual ledger acceptance for valid transfers and protocol-specific swaps; verify each backend's outcome correlation |
+| Internationalization and accessibility | 14-language connection and operation UI, searchable locale selection, automatic Arabic RTL and explicit direction overrides, dialog/account keyboard navigation, built-in contrast checks and kit and documentation axe/reflow Chromium scenarios pass; maintainer-confirmed basic VoiceOver reading and native keyboard checks are recorded; full speech/mobile acceptance remains open (see `wallet-acceptance.md`)                                            | Complete screen reader, contrast and responsive acceptance against WCAG 2.2 AA; record manual evidence alongside the automated locale/keyboard checks                                                                     |
+| Protocol ownership and compatibility   | Published SDK 0.20.1 native connections use official discovery 1.15.0, live account/event projections, constrained cache migration and a stable native provider facade; existing compatibility integrations coexist; interfaces and release gates reviewed in [Protocol ownership](./protocol-ownership.md) | Pass final packed/runtime/browser and live acceptance for the native owner, review the raw Ledger API/cache migration, retain the protected extension transport until the official lifecycle/security gap is resolved; add no new per-wallet PartyLayer adapter packages |
+| Dependency and release maintenance     | Daily Dependabot configuration and existing release gates on the default branch                                                                | Confirm update PRs run after merge, review API changes and pinned loader metadata, publish changesets, verify package provenance and document rollback; a new vendor release is not automatically production-approved                          |
+| Developer onboarding | CLI 0.7.0 is published with read-only diagnostics; public tarball integrity, installation, Doctor and a generated React production build are verified; migration and AI-assistant guides share compiled examples and navigable site pages | Keep source examples/reference outputs aligned; offline diagnostics do not replace live wallet and ledger acceptance |
+| Final wallet acceptance                | Per-wallet live results and unresolved issues are recorded in `releasing.md`                                                       | Resume deferred live tests, including Loop and Vala; test connect/reject/sign/restore/disconnect and valid ledger submissions on supported networks, record versions/results, and resolve or accurately constrain unavailable features         |
+
+Each milestone needs implementation, consumer-facing documentation and appropriate
+automated checks. A primitive or a passing mocked transport test alone does not
+complete its user journey. Remaining live tests are intentionally scheduled after
+the code and product milestones, at the maintainer's request.
+
+## What carries over from RainbowKit
+
+The comparison baseline includes ready-made wallet management and theming,
+[authentication](https://rainbowkit.com/docs/authentication),
+[localization](https://rainbowkit.com/docs/localization), custom wallet lists,
+custom interfaces and recent transaction UX. See the official
+[RainbowKit introduction](https://rainbowkit.com/docs/introduction).
+
+Ethereum-specific facilities such as ENS resolution, Sign-In with Ethereum and
+EVM chain/provider methods are not copied into Canton APIs. PartyLayer needs
+appropriate Canton account/party identity, authentication and CIP-0103 behavior.
+Wallet support varies: the UI must disclose actual capabilities, never imply that
+every wallet supports every operation.
+
+Neither a connection kit nor a successful message signature proves a swap or a
+transfer works. A dApp/protocol constructs the valid commands and any token-standard
+flow; PartyLayer connects the wallet, exposes supported actions and reports their
+actual results. Final acceptance must include valid transfers and protocol-specific
+swap outcomes on the ledger, with test funding and user approvals where required.
+
+The release status and current wallet evidence are maintained in
+[Release Process](./releasing.md#default-wallet-release-validation). Do not describe
+the entire roadmap or all wallets as verified while these criteria remain open.
+
+## Developer discovery and adoption
+
+See the [growth roadmap](./growth/roadmap.md) for search/npm/GitHub discovery, daily public measurement and a permission-based reference program. Its adoption targets do not replace the live wallet and ledger acceptance criteria above.

@@ -1,5 +1,66 @@
 # @partylayer/react-native
 
+## 2.0.0
+
+### Major Changes
+
+- 727c1b3: Bundle PartyLayer's own native client implementation into React Native so native installations no longer pull the browser SDK or wallet vendor dependency graph. Keep AsyncStorage 2.x supported, expose the bundled constructor, and accept external SDK clients through a structural public client interface. Preserve React Native Web's browser factory through the browser export condition and explicit `/web` entry with an optional SDK peer; web applications install the SDK explicitly. Separate shared SDK configuration types from browser-only wallet configuration so native declarations remain self-contained.
+
+### Patch Changes
+
+- Require a secure platform random source for new connections; native runtimes without global WebCrypto can provide `crypto.randomBytes` alongside their crypto implementation. Invalid legacy SDK caches require reconnect instead of weak cryptography fallbacks.
+- Updated dependencies [727c1b3]
+- Updated dependencies [d47df49]
+- Updated dependencies [d47df49]
+  - @partylayer/sdk@0.22.1
+
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+  - @partylayer/sdk@0.22.0
+  - @partylayer/session@1.1.11
+
+## 1.0.4
+
+### Patch Changes
+
+- Keep CSS radius parsing linear for long malformed theme values.
+
+- Updated dependencies [64ac2e1]
+- Updated dependencies [64ac2e1]
+  - @partylayer/sdk@0.21.0
+
+## 1.0.3
+
+### Patch Changes
+
+- ea0de53: Describe Canton Network wallet integration, CIP-0103 support and framework-specific entry points in npm metadata. Link packages to the relevant setup guides and improve discovery with relevant keywords. Runtime APIs and wallet capability contracts are unchanged.
+- Updated dependencies [ea0de53]
+  - @partylayer/sdk@0.20.1
+
+## 1.0.2
+
+### Patch Changes
+
+- Match the web kit's accessible theme palettes and accent foreground/pressed-state
+  contrast rules without importing DOM code. Preserve palette drift checks.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [2e07185]
+- Updated dependencies [8e08da9]
+- Updated dependencies [86f1a7d]
+  - @partylayer/core@0.15.0
+  - @partylayer/sdk@0.20.0
+  - @partylayer/session@1.1.9
+
 ## 1.0.1
 
 ### Patch Changes
@@ -103,6 +164,7 @@
   installed" error at runtime even when the peer WAS installed. Opening the connect UI on
   web crashed for exactly this reason; the deep link and storage loaders carried the same
   latent pattern.
+
   - The `./ui` entrypoint statically imports react-native-svg. A consumer of `./ui` without
     it now gets a bundler resolution error at build time rather than a runtime crash. The
     headless "." entrypoint still never imports it.

@@ -1,10 +1,149 @@
 # @partylayer/adapter-loop
 
+## 0.6.3
+
+### Patch Changes
+
+- Updated dependencies [6163ee3]
+  - @partylayer/core@0.16.0
+
+## 0.6.2
+
+### Patch Changes
+
+- Keep error classification and Loop resource normalization linear in untrusted input length. Preserve supported error wording, timeout extraction and route matching.
+- Updated dependencies
+  - @partylayer/core@0.15.1
+
+## 0.6.1
+
+### Patch Changes
+
+- c130fc4: Correct SDK README examples to include the required application configuration. Show Send's Mainnet kit integration and explicit compatibility setup without duplicate registration, and document Bron's application-owned OAuth/API requirements. These complete examples now compile against the public package declarations in the documentation gate.
+
+## 0.6.0
+
+### Minor Changes
+
+- 0ebd598: Stop reporting wallets as installed when nothing was installed.
+
+  `detectInstalled()` could only answer yes or no, and eight of twelve adapters had
+  no honest way to answer it — a QR wallet, a hosted popup, a relay and an OAuth
+  service have no local artefact to probe. They answered `true`, meaning
+  "reachable", and the picker read it as "installed". Cantor8 is not an extension
+  at all: its tile said installed, and clicking it opened a tab.
+
+  `AdapterDetectResult` gains `availability`, which says what presence actually is:
+  `installed`, `not-installed` (probed and absent, with an install URL),
+  `no-local-install` (QR / popup / relay — nothing to probe), or `unknown` (the
+  probe failed or timed out, which is not proof of absence). `installed` is
+  deprecated in its JSDoc, still populated, and exactly
+  `availability.kind === 'installed'`, so no consumer breaks.
+
+  **The false `true` was load-bearing.** `installGuard` read `installed` and threw
+  `WalletNotInstalledError` on false — so returning the truth would have blocked
+  connect for every wallet that has nothing to install. Making the adapters honest
+  broke connect for all of them until the guard was changed to ask its real
+  question: not "is it installed" but "do we already know this cannot work", which
+  only `not-installed` answers yes to. That coupling is why this is one contract
+  change rather than eight independent bug fixes.
+
+  Vendor `detect()` is no longer called for `discovery-adapter` wallets. All three
+  implementations are constants (`walley`: `window.open` exists; `cauri`:
+  `Promise.resolve(true)`; `oneswap`: `typeof window !== 'undefined'`), so awaiting
+  them bought no information while adding an async hop to the picker's render path
+  and a dependency on three third parties answering honestly. A `discovery-adapter`
+  transport IS the answer; the rule is applied in exactly one place.
+
+  The picker's subtitles for the two wallets measured causing real harm now say
+  what a click will do: "Scan to connect — nothing to install" and "Opens in a
+  popup — nothing to install".
+
+  `docs/adapters.md` records which adapters probe what, and one mismatch still
+  outstanding: Cantor8 classifies as `scan` but opens a tab, a registry-data fix
+  queued with the D5/D6 registry work.
+
+- 55ff8d1: Raise Loop's transaction outcome as an event instead of discarding it, and make
+  the `events` capability true.
+
+  Minor rather than patch: this adds public API — `LoopAdapter.on()` and the
+  `LoopAdapterEvent` type. Additive and non-breaking, but a new surface consumers
+  can depend on is not a patch, even when the reason for adding it is a fix.
+
+  `onTransactionUpdate` went to `ctx.logger.debug` and nowhere else. Per the
+  vendor's own README (identical in 0.13.2 and 0.13.4):
+
+  > `submitTransaction` is the default async path. It returns the submission
+  > result first (including `command_id` and `submission_id`), then the ledger
+  > update arrives later via `onTransactionUpdate` with `update_id` and
+  > `update_data`. On success it also includes `update_data` (ledger transaction
+  > tree); on failure it includes `status: "failed"` and `error.error_message`.
+
+  Our `submitTransaction()` uses that async path, so its receipt is a submission
+  acknowledgement, not an outcome. Discarding the hook meant a consumer submitting
+  through Loop could never learn whether the transaction committed, or why it
+  failed. The payload is now mapped onto core's transaction vocabulary
+  (`committed` / `failed` / `submitted`, with `update_id` as the transaction id and
+  `update_data` passed through untouched) and dispatched to subscribers.
+
+  `getCapabilities()` declared `events` while the adapter contained no dispatch of
+  any kind and the Loop provider exposes no subscription surface — no `on`, no
+  `addListener`, in 0.13.2 or 0.13.4. By this repo's own rule (`announce-adapter.ts`
+  pushes `events` only when a provider `on` exists) that claim was false. Rather
+  than drop the capability, the adapter now provides the surface that makes it
+  true: `on('txStatus', handler)`, matching the Console adapter's signature so a
+  consumer writes the same code against either wallet.
+
+  Scoped honestly to ONE event. Loop's SDK defines four `ProviderHooks`, but only
+  `onTransactionUpdate` is reachable by a dApp: `loop.init()` accepts `onAccept`,
+  `onReject` and `onTransactionUpdate` and nothing else, while the full
+  `ProviderHooks` is a `Provider` constructor parameter held in a `private hooks`
+  field with no setter — and the SDK builds the Provider itself before handing it
+  to `onAccept`. `sessionExpired` and a generic `error` channel are therefore not
+  declared: we could never raise them.
+
+### Patch Changes
+
+- b4961d2: Require `@fivenorth/loop-sdk` ^0.15.1, so signing opens the wallet on the domain
+  the user connected through.
+
+  Loop moved its wallet from `*.cantonloop.com` to `wallet.*.looptech.io`
+  (`@fivenorth/loop-sdk` 0.15.0, fivenorth-io/loop-sdk#88), keeping the old domain
+  as `secondaryWalletUrl`. The API host and the pairing socket stay on
+  `*.cantonloop.com`. From 0.15.0 the SDK records which domain approved the
+  connection (`isFromOldDomain` in the handshake) and opens the signing window
+  there (`resolveWalletUrl`). 0.13.x has no notion of two domains: it always opens
+  `walletUrl`, which it still sets to the old domain.
+
+  `^0.13.0` cannot resolve to 0.15. On a devnet transfer through 0.13.4, a user
+  whose wallet runs on `wallet.devnet.looptech.io` approved "Payvol wants to send
+  … CBTC" and got "Action failed: Prepared transaction not found". The adapter
+  passes no `walletUrl`, so taking the SDK's defaults is the whole change.
+
+  The SDK's public API change from 0.13.4 to 0.15.1 is additive for what this
+  adapter uses:
+
+  - `init` gains an optional `secondaryWalletUrl`;
+  - the session gains `walletUrl`;
+  - `ExecuteSubmissionResquest` is kept as an alias of `ExecuteSubmissionRequest`;
+  - the dist `provider.js` is byte-identical.
+
+  Typecheck and the adapter's 65 tests pass unchanged.
+
+- Updated dependencies [817d357]
+- Updated dependencies [2e07185]
+- Updated dependencies [882752f]
+- Updated dependencies [0ebd598]
+- Updated dependencies [8cb0f09]
+- Updated dependencies [8e08da9]
+  - @partylayer/core@0.15.0
+
 ## 0.5.0
 
 ### Minor Changes
 
 - a0292e5: **These calls now throw where they previously returned a value:**
+
   - **`ConsoleAdapter.connect`** — when the wallet reports no party id.
   - **`ConsoleAdapter.signTransaction`** — when the wallet returns no signature. Note this call _never_ failed before: it generated a hash on every invocation regardless of what the wallet said.
   - **`ConsoleAdapter.submitTransaction`** — when the wallet returns no signature.
@@ -55,6 +194,7 @@
   ## Who is affected
 
   The compiler enumerated this, not a grep. Every site that had to change:
+
   - `@partylayer/sdk` — the three `tx:status` emissions in `client.ts` (sign, submit, transfer)
   - `@partylayer/provider` — `BridgeableClient`'s structural type, and the `signed` / `executed` CIP-0103 payloads
   - `@partylayer/react` and `@partylayer/vue` — the `TransactionToast` detail line
@@ -72,6 +212,7 @@
   Two of the nine were found only while making this change — in our Bron adapter, which an earlier survey of this exact problem had missed because they were ternaries rather than `??` chains. That is the argument in miniature: fixing the sites one at a time finds the ones you already know how to look for, and leaving the field required guarantees the next adapter writes a tenth.
 
   ## Also fixed here
+
   - **`BronAdapter`** omits `transactionHash` instead of reporting the word `'pending'` as one (two sites).
   - **`LoopAdapter`** omits it instead of reporting the command id under it. The command id is still reported as `commandId`, which is true of it. A real value under a wrong name is the same error as a fabricated one for anyone reading the field by its name.
 
@@ -82,12 +223,14 @@
   This exists so that a transfer does not have to be routed through `ledgerApi`. A generic proxy pointed at the interactive-submission endpoints is a request to sign arbitrary bytes: the wallet cannot decode what was asked for, so it cannot render a meaningful confirmation, so the user approves a hash. `ledgerApi` is unchanged, and this method sits alongside it.
 
   New in `@partylayer/core`:
+
   - `TransferIntent`, `TransferResult`, `TokenInstrumentId`
   - `toTransferIntent()` and `TRANSFER_INTENT_FIELDS` — the field allowlist every adapter builds its wallet request through, so a caller-supplied option cannot reach a wallet
   - `WalletAdapter.requestTransfer?()` — optional; a wallet that cannot both return a real update id and show an explicit user approval does not implement it
   - `CapabilityKey` gains `'transfer'`; `ErrorMappingContext.phase` gains `'requestTransfer'`
 
   New in `@partylayer/sdk`:
+
   - `PartyLayerClient.requestTransfer()`, which narrows the intent through the allowlist before any adapter sees it and throws `CapabilityNotSupportedError` when the active wallet does not implement it
 
   Additive throughout: no existing method signature, adapter contract, or published interface changes. Ask before calling with `session.capabilitiesSnapshot.includes('transfer')`, or require it at connect with `connect({ requiredCapabilities: ['transfer'] })`.
@@ -95,6 +238,7 @@
   `TransferResult.updateId` is required and always real. An adapter that cannot obtain one throws rather than substituting a command id, a submission id, a signature, or a generated string.
 
   Implemented natively by three adapters, each mapping the intent onto its wallet's own typed transfer:
+
   - **Console** — `submitCommands`, with the update id read from the `txChanged` stream and correlated to the call by signature. Requires `executeBefore`, and carries `meta` only as a single `memo`; both are refused rather than silently dropped.
   - **Nightly** — `createTransferCommand` + `submitTransactionCommand`. The only one of the three that carries the instrument's issuing admin through to the wallet.
   - **Loop** — the SDK's `transfer()` in `wait` mode, which is where `RunTransactionResponse.update_id` is populated.
@@ -173,6 +317,7 @@
   boundary (`LedgerApiParams`) accepts a friendly superset, `requestMethod` in
   either case (plus `PATCH`) and `body` as a JSON string **or** a plain object, and
   each adapter normalizes to what its wallet requires:
+
   - **CIP-0103 `window.canton` RPC wallets**, Send, Console, Nightly,
     WalletConnect, and the SDK announce bridge, get a **lower-case** verb + an
     **object** body, per the canonical CIP-0103 OpenRPC `LedgerApiRequest` schema
@@ -294,6 +439,7 @@
   CantonConnect provides a WalletConnect-like experience for Canton Network dApps, enabling seamless integration with multiple Canton wallets through a unified API.
 
   Features:
+
   - Support for Console Wallet, 5N Loop, Cantor8, and Bron wallets
   - React hooks and components for easy integration
   - TypeScript support with full type definitions

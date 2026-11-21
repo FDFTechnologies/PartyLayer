@@ -37,9 +37,8 @@ fully respected, secure-by-default only governs the **omitted** case.
 import { createSessionStore } from '@partylayer/session';
 
 const store = createSessionStore(provider /* any CIP0103Provider */, {
-  // storage is OPTIONAL, defaults to in-memory (no DOM access).
-  // In a browser, inject a localStorage adapter:
-  // storage: { getItem: (k) => localStorage.getItem(k), setItem: (k, v) => localStorage.setItem(k, v), removeItem: (k) => localStorage.removeItem(k) },
+  // Omitted storage uses encrypted IndexedDB when supported, memory otherwise.
+  // Explicit storage overrides that default; choose its security properties deliberately.
 });
 
 const unsubscribe = store.subscribe(() => {
@@ -82,10 +81,10 @@ only on real change), so it is safe for `useSyncExternalStore`.
 ## Persistence
 
 Persistence is **pluggable**, inject a `SessionStorage` (`getItem`/`setItem`/
-`removeItem`, sync or async). The default is in-memory, so the core runs in any
-runtime (Node/RN/browser) and tests are deterministic. The auto-reconnect
-marker is written on connect and cleared on disconnect; `restore()` verifies
-against the live provider before trusting it.
+`removeItem`, sync or async). When storage is omitted, the store uses encrypted
+IndexedDB where supported and falls back to in-memory storage elsewhere. The
+session snapshot is written on connect and cleared on disconnect; `restore()`
+verifies against the live provider before trusting it.
 
 ## React integration
 
@@ -277,6 +276,12 @@ rebroadcasting** (loop-safe, verified: BroadcastChannel never echoes to the
 sender). When BroadcastChannel is **unavailable** (SSR / Node) it is a **graceful
 no-op**, single-tab behavior is unchanged.
 
+On explicit logout, each receiving tab also calls its provider's standard
+`disconnect` once so the provider/SDK owner and UI agree. Reconnect is cancelled;
+provider failures are recorded in `lastError`. This does not authenticate from a
+cached snapshot. In React, use the kit's ConnectButton or disconnect hooks to
+coordinate the shared store with the SDK lifecycle.
+
 ### Party-switch
 
 On `accountsChanged`, the store compares the **primary** `partyId`. A change from
@@ -294,8 +299,8 @@ layer only emits + invalidates.)
 ### `persistSnapshot`
 
 When `true`, the store persists the **full session envelope** at `storageKey`
-(rewritten on party/network change) instead of the legacy `'1'` marker. Default
-`false` (marker behavior preserved, purely additive).
+(rewritten on party/network change) instead of the legacy `'1'` marker. Defaults
+to `true`; set `false` to persist only the reconnect marker.
 
 ### Session lifecycle scenarios (11 covered)
 

@@ -24,6 +24,46 @@ consumer bundles.
 Package size is not what a dApp ships. What a dApp ships is the tree shaken, minified, and
 gzipped cost of the exports it actually imports. That is measured below.
 
+The default catalog loads reviewed official SDKs and hosted profiles lazily during wallet discovery;
+configured WalletConnect and Bron transports also load lazily. At the earlier published checkpoint, the measured initial
+SDK contribution is about 50.10 kB gzip (53.5 kB budget); React Native headless is about 50.35 kB
+(53.75 kB budget). These budgets exclude asynchronous chunks. The kit lists wallets on mount, so
+eligible wallet/discovery chunks can start loading before the picker opens;
+these numbers are not total first-load bytes. Connecting WalletConnect loads
+its underlying transport. Run `pnpm gate:size`
+for the current numbers. The React connection surface at that checkpoint measured about 36.02 kB gzip with
+a 37.5 kB budget after adding keyboard behavior, English/Turkish UI, optional
+authentication actions, scoped recent activity, network guidance and exact-decimal
+holdings UI. Server challenge/verification helpers use a separate
+`@partylayer/core/authentication` subpath; ordinary wallet clients do not import them.
+Session revision guards and serialized persistence add about 0.45 kB to the SDK/RN
+headless bundles. Complete transaction-event evidence, combined-only routing and
+signature echo checks add a further ~0.34 kB. Official native ownership, abort/identity guards and the stable provider facade
+add approximately 3.5 kB; the dynamically imported official discovery runtime
+is excluded from the initial-bundle scenario and downloaded during preparation.
+The older comparisons below remain dated historical measurements.
+
+### Published installation corrections
+
+Core 0.16.1, SDK 0.22.1 and React Native 2.0.0 were published on 2026-11-15.
+The following measurements apply to the reviewed files whose compiled contents
+match the public archives. See the
+[publication evidence](releases/consumer-installation-corrections-2026-11-15.md).
+
+| Scenario | Gzip contribution | Existing budget |
+| --- | --- | --- |
+| React connection surface | 36.09 kB | 37.5 kB |
+| Token holdings query | 467 B | 700 B |
+| Exact token comparison | 336 B | 500 B |
+| React Native headless | 23.00 kB | 53.75 kB |
+| React Native UI | 5.04 kB | 5.5 kB |
+| Browser SDK client | 53.29 kB | 53.5 kB |
+
+The independently implemented OneSwap hosted profile is emitted as a private
+dynamic module. Actual packed Vite and Next.js builds place it outside their
+initial static chunk graph. Discovery can prewarm this module before a wallet
+is selected. None of the six byte limits was increased.
+
 ## What each import scenario costs
 
 Measured with `size-limit` (esbuild bundler, gzip). Peer dependencies (React, React Query,
@@ -63,9 +103,9 @@ Reading of the numbers:
 
 The ui entrypoint imports `react-native` and `react-native-svg`, which only resolve inside
 a React Native bundler (Metro), not a web bundler. The size-limit config marks those and
-the other React Native peers as external, so the 2,970 B figure is the cost of PartyLayer's
-own ui code, not a runnable React Native bundle. The genuine on device runtime is verified
-separately by the Expo demo web smoke described in `demos/expo-connect/README.md` and in
+the other React Native peers as external, so the current 5.04 kB figure is the cost of PartyLayer's
+own ui code, not a runnable React Native bundle. The Expo demo web smoke exercises the Metro web export;
+native iOS/Android device acceptance is separate. The smoke is described in `demos/expo-connect/README.md` and in
 `docs/releasing.md`.
 
 ## Budgets and where they are enforced
@@ -78,15 +118,26 @@ in CI rather than reaching a consumer.
 
 | Scenario | Measured | Budget | Headroom |
 |---|---|---|---|
-| Connect surface | 29.22 KB | 30 KB | ~5% |
-| One token hook | 455 B | 700 B | ~54% |
-| Matching helper | 283 B | 500 B | ~77% |
-| RN headless | 42.22 KB | 43 KB | ~4% |
-| RN ui | 2.97 KB | 3.5 KB | ~18% |
-| SDK client | 42.02 KB | 43 KB | ~5% |
+| Connect surface | 36.02 kB | 37.5 kB | ~0.5% |
+| One token hook | 467 B | 700 B | ~50% |
+| Matching helper | 294 B | 500 B | ~70% |
+| RN headless | 50.35 kB | 53.75 kB | ~0.5% |
+| RN ui | 5.04 kB | 5.5 kB | ~9% |
+| SDK client | 50.10 kB | 53.5 kB | ~0.5% |
 
-The large entrypoints carry roughly 5 percent headroom, tight enough to catch a real
-regression. The tiny helper entrypoints carry more relative headroom because a few hundred
+Request/receipt command-ID correlation adds about 0.12 kB to the shared SDK and
+RN headless entrypoints. The budgets include that reviewed guard so an unrelated
+wallet response cannot be accepted as the requested transaction's receipt.
+
+The 2026-10-30 candidate adds approximately 0.38 kB to SDK/RN for persistent
+registry re-verification and bounded storage startup. Optional transaction-journal
+wiring adds about 0.17 kB to the connection surface; the persistence code stays in
+the separate `/journal` entry. The server reference is not part of the browser
+bundle. These are import-scenario measurements, not total application bytes or
+live wallet latency.
+
+The large entrypoints currently carry less than 1 percent headroom. Budget changes
+require an explicit review of the behavior and measured cost. The tiny helper entrypoints carry more relative headroom because a few hundred
 bytes of normal churn swing their percentage sharply.
 
 Run the check on its own with `pnpm gate:size`, or `pnpm size` during development.

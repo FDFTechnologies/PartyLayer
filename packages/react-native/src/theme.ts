@@ -44,12 +44,31 @@ function shade(hex: string, pct: number): string {
   return '#' + mixed.map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
-/** Choose a readable on-accent text color from the accent's luminance. */
-function autoForeground(hex: string): string {
+const DEFAULT_FOREGROUND = '#0B0F1A';
+
+/** WCAG relative luminance; non-hex overrides remain the application's choice. */
+function luminance(hex: string): number | null {
   const rgb = parseHex(hex);
-  if (!rgb) return '#FFFFFF';
-  const lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  return lum > 150 ? '#0B0F1A' : '#FFFFFF';
+  if (!rgb) return null;
+  const linear = rgb.map((c) => {
+    const value = c / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+}
+
+function contrast(a: string, b: string): number {
+  const x = luminance(a), y = luminance(b);
+  if (x === null || y === null) return Infinity;
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** Pick the higher-contrast foreground, with pure black for middle luminance. */
+function autoForeground(hex: string): string {
+  const white = contrast(hex, '#FFFFFF');
+  const dark = contrast(hex, DEFAULT_FOREGROUND);
+  if (white >= dark && white >= 4.5) return '#FFFFFF';
+  return dark >= 4.5 ? DEFAULT_FOREGROUND : '#000000';
 }
 
 /**
@@ -67,6 +86,11 @@ export function applyAccent(theme: PartyLayerTheme, overrides: AccentOverrides):
     next.colors.primaryForeground = overrides.accentColorForeground ?? autoForeground(overrides.accentColor);
   }
   if (overrides.accentColorForeground) next.colors.primaryForeground = overrides.accentColorForeground;
+  const foreground = next.colors.primaryForeground ?? DEFAULT_FOREGROUND;
+  if (overrides.accentColor && contrast(foreground, next.colors.primaryHover) < 4.5 &&
+      contrast(foreground, next.colors.primary) >= 4.5) {
+    next.colors.primaryHover = next.colors.primary;
+  }
   return next;
 }
 
@@ -83,11 +107,11 @@ export const DEFAULT_BORDER_RADIUS = 10;
  */
 export function parseBorderRadius(value: string): number {
   const trimmed = value.trim();
-  const remMatch = /^(-?\d*\.?\d+)rem$/.exec(trimmed);
+  const remMatch = /^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/.exec(trimmed);
   if (remMatch) return parseFloat(remMatch[1]) * REM_BASE_PX;
-  const pxMatch = /^(-?\d*\.?\d+)px$/.exec(trimmed);
+  const pxMatch = /^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/.exec(trimmed);
   if (pxMatch) return parseFloat(pxMatch[1]);
-  const bare = /^(-?\d*\.?\d+)$/.exec(trimmed);
+  const bare = /^(-?(?:\d+(?:\.\d+)?|\.\d+))$/.exec(trimmed);
   if (bare) return parseFloat(bare[1]);
   return DEFAULT_BORDER_RADIUS;
 }

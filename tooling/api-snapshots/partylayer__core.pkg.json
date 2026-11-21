@@ -1,9 +1,19 @@
 {
   "exports": {
+    "./amounts": {
+      "types": "./dist/amounts.d.ts",
+      "import": "./dist/amounts.mjs",
+      "require": "./dist/amounts.js"
+    },
+    "./authentication": {
+      "types": "./dist/authentication.d.ts",
+      "import": "./dist/authentication.mjs",
+      "require": "./dist/authentication.js"
+    },
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
   "main": "./dist/index.js",
